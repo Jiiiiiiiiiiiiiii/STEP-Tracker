@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>STEP — Guardian Tracker</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
+  <!-- Simple STEP theme CSS (high-contrast + accessible) -->
+  <style>
+    :root{
+      --bg:#000;
+      --accent:#FFD400; /* STEP yellow */
+      --muted:#ddd;
+      --card:#111;
+      --success:#4CAF50;
+      --danger:#FF5252;
+      --font-sans: "Segoe UI", Roboto, Arial, sans-serif;
+    }
+    html,body{height:100%; margin:0; background:var(--bg); color:var(--muted); font-family:var(--font-sans);}
+    .container{display:flex; height:100vh; gap:12px; padding:12px; box-sizing:border-box;}
+    /* Left: map, Right: info panel */
+    .map-wrap{flex:2; border-radius:12px; overflow:hidden; box-shadow:0 4px 14px rgba(0,0,0,0.6);}
+    #map{height:100%; width:100%;}
+    .panel{flex:1; background:var(--card); border-radius:12px; padding:18px; display:flex; flex-direction:column; gap:12px;}
+    h1{margin:0; color:var(--accent); font-size:28px;}
+    .big {font-size:28px; color:#fff; font-weight:700;}
+    .coordinate {font-size:20px; color:var(--muted); background:#0b0b0b; padding:10px; border-radius:8px;}
+    .row{display:flex; gap:10px; align-items:center;}
+    .label{color:#bbb; font-size:14px;}
+    .status {padding:12px; border-radius:10px; background:#070707; display:flex; justify-content:space-between; align-items:center;}
+    .pill{font-size:18px; padding:10px 12px; border-radius:10px; background:#111; color:var(--muted);}
+    button.large {
+      background:var(--accent); color:#000; border:none; padding:12px; font-size:18px; border-radius:10px;
+      cursor:pointer; font-weight:700;
+    }
+    .meta{font-size:14px; color:#999;}
+    .alert{background:var(--danger); color:#000; padding:10px; border-radius:8px; font-weight:700;}
+    .ok{background:var(--success); color:#000; padding:10px; border-radius:8px; font-weight:700;}
+    footer{margin-top:auto; font-size:13px; color:#777;}
+    @media(max-width:900px){
+      .container{flex-direction:column;}
+      .map-wrap{height:60vh;}
+      .panel{height:40vh; overflow:auto;}
+    }
+  </style>
+</head>
+<body>
+  <div class="container" role="main">
+    <div class="map-wrap" aria-label="Map area">
+      <div id="map" role="application" aria-label="Live location map"></div>
+    </div>
+
+    <aside class="panel" aria-label="Device information panel">
+      <header>
+        <h1>STEP Tracker — Guardian</h1>
+        <div class="meta">Device: <span id="deviceName">S.T.E.P Prototype</span></div>
+      </header>
+
+      <section class="status" aria-live="polite">
+        <div>
+          <div class="label">Last location</div>
+          <div id="latlng" class="big coordinate" aria-atomic="true">— , —</div>
+        </div>
+        <div style="text-align:right">
+          <div class="label">Last update</div>
+          <div id="lastUpdate" class="pill">—</div>
+          <div style="height:8px"></div>
+          <div id="connectStatus" class="pill">Connecting...</div>
+        </div>
+      </section>
+
+      <section>
+        <div class="label">Distance to obstacle</div>
+        <div id="distance" class="coordinate">— cm</div>
+      </section>
+
+      <section>
+        <div class="label">Battery</div>
+        <div id="battery" class="coordinate">— V</div>
+      </section>
+
+      <section>
+        <div class="label">Alerts</div>
+        <div id="alerts" class="coordinate" role="status" aria-live="assertive">No alerts</div>
+      </section>
+
+      <section class="row" style="justify-content:space-between">
+        <button id="playSound" class="large" aria-label="Play alert sound">🔔 Play Sound</button>
+        <button id="centerBtn" class="large" aria-label="Center map on device">📍 Center Map</button>
+      </section>
+
+      <footer>
+        <div class="meta">Share this page with the guardian. Designed for accessibility (high contrast, large text).</div>
+      </footer>
+    </aside>
+  </div>
+
+  <!-- Scripts: Firebase (compat), Leaflet, and main JS -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <script>
+  /*******************************
+   *  1) Paste your firebaseConfig here
+   *******************************/
+   const firebaseConfig = {
+    apiKey: "AIzaSyCEPsPPxprCkb70JAre73vo0jo3YA6uZQ4",
+    authDomain: "step-gps-tracker.firebaseapp.com",
+    databaseURL: "https://step-gps-tracker-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "step-gps-tracker",
+    storageBucket: "step-gps-tracker.firebasestorage.app",
+    messagingSenderId: "637274580153",
+    appId: "1:637274580153:web:7566f774dbf5ea4380a768",
+    measurementId: "G-YNCGWZ0W3G"
+  };
+
+  // Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  /*******************************
+   * 2) Leaflet map setup
+   *******************************/
+  const defaultLat = 13.0, defaultLng = 121.0;
+  const map = L.map('map', { zoomControl: true }).setView([defaultLat, defaultLng], 15);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(map);
+
+  // big accessible icon (yellow circle)
+  const icon = L.divIcon({
+    className: 'step-marker',
+    html: '<div style="width:26px;height:26px;border-radius:50%;background:#FFD400;border:3px solid #000"></div>',
+    iconSize: [26,26], iconAnchor: [13,13]
+  });
+
+  let marker = L.marker([defaultLat, defaultLng], { icon }).addTo(map);
+  marker.bindPopup('STEP device').openPopup();
+
+  /*******************************
+   * 3) UI elements
+   *******************************/
+  const latlngEl = document.getElementById('latlng');
+  const lastUpdateEl = document.getElementById('lastUpdate');
+  const distanceEl = document.getElementById('distance');
+  const batteryEl = document.getElementById('battery');
+  const alertsEl = document.getElementById('alerts');
+  const connectStatusEl = document.getElementById('connectStatus');
+  const centerBtn = document.getElementById('centerBtn');
+  const playSoundBtn = document.getElementById('playSound');
+
+  // audio for alerts (simple beep)
+  const beep = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEA...'); // (placeholder short beep)
+  // Note: you can replace with a real URL or encoded audio.
+
+  // center map on marker
+  centerBtn.addEventListener('click', ()=> {
+    map.panTo(marker.getLatLng());
+    marker.openPopup();
+  });
+
+  playSoundBtn.addEventListener('click', ()=> {
+    try { beep.play(); }catch(e){ console.log(e); }
+  });
+
+  /*******************************
+   * 4) Helper: format timestamp
+   *******************************/
+  function formatTS(ts){
+    if(!ts) return '—';
+    const d = new Date(ts*1000);
+    return d.toLocaleString('en-PH', { hour12:false });
+  }
+
+  /*******************************
+   * 5) Listen to Firebase 'shoe' node
+   *******************************/
+  const shoeRef = db.ref('shoe');
+  let lastSeen = 0;
+
+  shoeRef.on('value', snap => {
+    const data = snap.val();
+    if(!data){ connectStatusEl.textContent = 'No data'; connectStatusEl.style.background=''; return; }
+
+    // mark connected
+    connectStatusEl.textContent = 'Online';
+    connectStatusEl.style.background = 'var(--accent)';
+    connectStatusEl.style.color='#000';
+
+    // coordinates
+    const lat = data.latitude || defaultLat;
+    const lng = data.longitude || defaultLng;
+    marker.setLatLng([lat,lng]);
+
+    latlngEl.textContent = `${lat.toFixed(6)} , ${lng.toFixed(6)}`;
+
+    // timestamp - if none, use client time
+    const ts = data.timestamp || Math.floor(Date.now()/1000);
+    lastUpdateEl.textContent = formatTS(ts);
+
+    // distance
+    if (typeof data.distance !== 'undefined' && data.distance !== null){
+      distanceEl.textContent = `${Number(data.distance).toFixed(1)} cm`;
+    } else { distanceEl.textContent = '— cm'; }
+
+    // battery
+    if (typeof data.battery !== 'undefined' && data.battery !== null){
+      batteryEl.textContent = `${Number(data.battery).toFixed(2)} V`;
+    } else { batteryEl.textContent = '— V'; }
+
+    // Alerts / SOS
+    if (data.sos === true){
+      alertsEl.innerHTML = '<span class="alert">SOS — Send Help</span>';
+      try{ beep.play(); }catch(e){}
+    } else {
+      alertsEl.innerHTML = '<span class="ok">No alerts</span>';
+    }
+
+    // center map on first update
+    if(!lastSeen){ map.panTo([lat,lng]); marker.openPopup(); }
+    lastSeen = ts;
+  }, err => {
+    console.error('Firebase read failed', err);
+    connectStatusEl.textContent = 'Error';
+    connectStatusEl.style.background = 'var(--danger)';
+  });
+
+  /*******************************
+   * 6) Optional: monitor connection state (offline detection)
+   *******************************/
+  const connectedRef = db.ref(".info/connected");
+  connectedRef.on("value", snap => {
+    if (snap.val() === true) {
+      // connected to Firebase
+      // keep status as above
+    } else {
+      connectStatusEl.textContent = 'Offline';
+      connectStatusEl.style.background = 'var(--danger)';
+    }
+  });
+
+  </script>
+</body>
+</html>
