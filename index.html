@@ -67,6 +67,7 @@
       gap: 18px;
       border-left: 2px solid #222;
       box-shadow: inset 0 0 12px rgba(255, 212, 0, 0.05);
+      overflow-y: auto;
     }
 
     .title {
@@ -143,6 +144,11 @@
       transform: scale(1.03);
     }
 
+    button:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
     footer {
       text-align: center;
       padding: 8px;
@@ -155,30 +161,48 @@
       main { grid-template-columns: 1fr; grid-template-rows: 1fr 0.9fr; }
       .panel { border-left: none; border-top: 2px solid #222; }
     }
+
+    /* Accessibility improvements */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* Smooth animations for marker movement */
+    .leaflet-marker-icon {
+      transition: transform 0.5s ease;
+    }
   </style>
 </head>
 <body>
   <header>
     <div>👟 STEP Tracker — Guardian</div>
-    <div id="connectStatus" class="status-pill">Connecting...</div>
+    <div id="connectStatus" class="status-pill" aria-live="polite">Connecting...</div>
   </header>
 
   <main>
-    <div id="map"></div>
+    <div id="map" role="application" aria-label="Interactive map showing STEP device location"></div>
 
     <div class="panel">
       <div class="title">Device Information</div>
 
-      <div class="info-box"><span>Last Location:</span><span class="value" id="latlng">— , —</span></div>
-      <div class="info-box"><span>Street:</span><span class="value" id="street">—</span></div>
-      <div class="info-box"><span>Last Update:</span><span class="value" id="lastUpdate">—</span></div>
-      <div class="info-box"><span>Distance to Obstacle:</span><span class="value" id="distance">— cm</span></div>
-      <div class="info-box"><span>Battery Level:</span><span class="value" id="battery">— %</span></div>
-      <div id="alerts" class="ok status-pill">No alerts</div>
+      <div class="info-box"><span>Last Location:</span><span class="value" id="latlng" aria-live="polite">— , —</span></div>
+      <div class="info-box"><span>Street:</span><span class="value" id="street" aria-live="polite">—</span></div>
+      <div class="info-box"><span>Last Update:</span><span class="value" id="lastUpdate" aria-live="polite">—</span></div>
+      <div class="info-box"><span>Distance to Obstacle:</span><span class="value" id="distance" aria-live="polite">— cm</span></div>
+      <div class="info-box"><span>Battery Level:</span><span class="value" id="battery" aria-live="polite">— %</span></div>
+      <div id="alerts" class="ok status-pill" aria-live="assertive">No alerts</div>
 
       <div class="btn-row">
-        <button id="playSound">🔔 Play Sound</button>
-        <button id="centerBtn">📍 Center Map</button>
+        <button id="playSound" aria-label="Play sound to alert the device">🔔 Play Sound</button>
+        <button id="centerBtn" aria-label="Center map on device location">📍 Center Map</button>
       </div>
     </div>
   </main>
@@ -207,26 +231,26 @@
 
   // --- Leaflet Map ---
   const defaultLat = 13.0, defaultLng = 121.0;
-  const map = L.map('map').setView([defaultLat, defaultLng], 16);
+  const map = L.map('map', { zoomControl: true, attributionControl: true }).setView([defaultLat, defaultLng], 16);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '© OpenStreetMap contributors'
   }).addTo(map);
 
-  // --- Human icon for accessibility ---
-  const humanIcon = L.divIcon({
-    className: '',
-    html: '<div style="width:30px;height:30px;border-radius:50%;background:#FFD400;border:3px solid #000;display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px #FFD400;"><span style="font-size:18px;">🧑‍🦯</span></div>',
-    iconSize: [30,30],
-    iconAnchor: [15,15]
+  // --- Icon for visually impaired person (person with white cane) ---
+  const blindIcon = L.divIcon({
+    className: 'custom-icon',
+    html: '<div style="width:40px;height:40px;border-radius:50%;background:#FFD400;border:3px solid #000;display:flex;align-items:center;justify-content:center;box-shadow:0 0 15px #FFD400;animation:pulse 2s infinite;"><span style="font-size:24px;" role="img" aria-label="Person with white cane">🧑‍🦯</span></div>',
+    iconSize: [40,40],
+    iconAnchor: [20,20]
   });
 
-  let marker = L.marker([defaultLat, defaultLng], {icon: humanIcon}).addTo(map).bindPopup('STEP Device');
+  let marker = L.marker([defaultLat, defaultLng], {icon: blindIcon}).addTo(map).bindPopup('STEP Device Location');
 
-  // --- Path tracking ---
+  // --- Path tracking with smooth line ---
   let pathCoords = [];
-  let pathLine = L.polyline(pathCoords, {color:'#FFD400', weight:4, opacity:0.7}).addTo(map);
+  let pathLine = L.polyline(pathCoords, {color:'#FFD400', weight:4, opacity:0.8, dashArray: '10, 10'}).addTo(map);
 
   // --- Elements ---
   const latlngEl = document.getElementById('latlng');
@@ -241,7 +265,10 @@
 
   const beep = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
 
-  centerBtn.addEventListener('click', ()=> map.panTo(marker.getLatLng()));
+  centerBtn.addEventListener('click', ()=> {
+    map.panTo(marker.getLatLng());
+    map.setZoom(18); // Zoom in closer for better view
+  });
   playSoundBtn.addEventListener('click', ()=> beep.play());
 
   // --- Reverse Geocoding ---
@@ -250,7 +277,7 @@
       const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`;
       const res = await fetch(url, { headers: {'User-Agent':'STEP Tracker'} });
       const data = await res.json();
-      return data.address.road || data.display_name || 'Unknown';
+      return data.address ? (data.address.road || data.display_name) : 'Unknown';
     } catch(e){ return 'Unknown'; }
   }
 
@@ -270,17 +297,17 @@
     const lat = data.latitude || defaultLat;
     const lng = data.longitude || defaultLng;
 
-    // Marker & map pan
+    // Smooth marker movement
     marker.setLatLng([lat,lng]);
-    map.panTo([lat,lng]);
+    map.panTo([lat,lng], {animate: true, duration: 1});
 
-    // Add to path
+    // Add to path and limit to last 200 points for performance
     pathCoords.push([lat,lng]);
-    if(pathCoords.length > 100) pathCoords.shift();
+    if(pathCoords.length > 200) pathCoords.shift();
     pathLine.setLatLngs(pathCoords);
 
-    // Update info panel
-    latlngEl.textContent = `${lat.toFixed(6)} , ${lng.toFixed(6)}`;
+    // Update info panel with live updates
+    latlngEl.textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
     lastUpdateEl.textContent = new Date().toLocaleString('en-PH',{hour12:false});
     distanceEl.textContent = data.distance ? `${data.distance.toFixed(1)} cm` : '— cm';
 
@@ -288,20 +315,38 @@
     if(data.battery){
       let percent = Math.round((data.battery - 3.0)/(4.2-3.0)*100);
       percent = Math.max(0, Math.min(100, percent));
-      batteryEl.textContent = `${percent} %`;
+      batteryEl.textContent = `${percent}%`;
+      if(percent < 20) {
+        batteryEl.style.color = var(--danger);
+      } else {
+        batteryEl.style.color = var(--accent);
+      }
     }
 
     // Street name
     streetEl.textContent = await getStreet(lat, lng);
 
-    // Alerts
+    // Alerts with sound and visual feedback
     if(data.sos){
       alertsEl.textContent = "⚠️ SOS — Send Help!";
       alertsEl.className = "alert";
       beep.play();
+      // Optional: Vibrate if supported
+      if(navigator.vibrate) navigator.vibrate(500);
     } else {
       alertsEl.textContent = "✅ No Alerts";
       alertsEl.className = "status-pill";
+    }
+  });
+
+  // --- Additional features for better UX ---
+  // Auto-center on load
+  setTimeout(() => map.invalidateSize(), 100);
+
+  // Keyboard navigation for map
+  map.on('keydown', function(e) {
+    if(e.originalEvent.key === 'c') {
+      map.panTo(marker.getLatLng());
     }
   });
   </script>
