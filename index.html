@@ -170,9 +170,10 @@
       <div class="title">Device Information</div>
 
       <div class="info-box"><span>Last Location:</span><span class="value" id="latlng">— , —</span></div>
+      <div class="info-box"><span>Street:</span><span class="value" id="street">—</span></div>
       <div class="info-box"><span>Last Update:</span><span class="value" id="lastUpdate">—</span></div>
       <div class="info-box"><span>Distance to Obstacle:</span><span class="value" id="distance">— cm</span></div>
-      <div class="info-box"><span>Battery Level:</span><span class="value" id="battery">— V</span></div>
+      <div class="info-box"><span>Battery Level:</span><span class="value" id="battery">— %</span></div>
       <div id="alerts" class="ok status-pill">No alerts</div>
 
       <div class="btn-row">
@@ -213,17 +214,23 @@
     attribution: '© OpenStreetMap contributors'
   }).addTo(map);
 
-  const icon = L.divIcon({
+  // --- Human icon for accessibility ---
+  const humanIcon = L.divIcon({
     className: '',
-    html: '<div style="width:26px;height:26px;border-radius:50%;background:#FFD400;border:3px solid #000;box-shadow:0 0 10px #FFD400;"></div>',
-    iconSize: [26,26],
-    iconAnchor: [13,13]
+    html: '<div style="width:30px;height:30px;border-radius:50%;background:#FFD400;border:3px solid #000;display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px #FFD400;"><span style="font-size:18px;">🧑‍🦯</span></div>',
+    iconSize: [30,30],
+    iconAnchor: [15,15]
   });
 
-  let marker = L.marker([defaultLat, defaultLng], {icon}).addTo(map).bindPopup('STEP Device');
+  let marker = L.marker([defaultLat, defaultLng], {icon: humanIcon}).addTo(map).bindPopup('STEP Device');
+
+  // --- Path tracking ---
+  let pathCoords = [];
+  let pathLine = L.polyline(pathCoords, {color:'#FFD400', weight:4, opacity:0.7}).addTo(map);
 
   // --- Elements ---
   const latlngEl = document.getElementById('latlng');
+  const streetEl = document.getElementById('street');
   const lastUpdateEl = document.getElementById('lastUpdate');
   const distanceEl = document.getElementById('distance');
   const batteryEl = document.getElementById('battery');
@@ -232,30 +239,63 @@
   const centerBtn = document.getElementById('centerBtn');
   const playSoundBtn = document.getElementById('playSound');
 
-  // --- Sound Alert ---
   const beep = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
 
   centerBtn.addEventListener('click', ()=> map.panTo(marker.getLatLng()));
   playSoundBtn.addEventListener('click', ()=> beep.play());
 
+  // --- Reverse Geocoding ---
+  async function getStreet(lat, lng){
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`;
+      const res = await fetch(url, { headers: {'User-Agent':'STEP Tracker'} });
+      const data = await res.json();
+      return data.address.road || data.display_name || 'Unknown';
+    } catch(e){ return 'Unknown'; }
+  }
+
   // --- Firebase listener ---
   const shoeRef = db.ref('shoe');
-  shoeRef.on('value', snap => {
+  shoeRef.on('value', async snap => {
     const data = snap.val();
-    if(!data){ connectStatusEl.textContent='No Data'; connectStatusEl.style.background= '#555'; return; }
+    if(!data){ 
+      connectStatusEl.textContent='No Data'; 
+      connectStatusEl.style.background= '#555'; 
+      return; 
+    }
 
     connectStatusEl.textContent='Online';
     connectStatusEl.style.background= 'var(--success)';
 
     const lat = data.latitude || defaultLat;
     const lng = data.longitude || defaultLng;
+
+    // Marker & map pan
     marker.setLatLng([lat,lng]);
+    map.panTo([lat,lng]);
+
+    // Add to path
+    pathCoords.push([lat,lng]);
+    if(pathCoords.length > 100) pathCoords.shift();
+    pathLine.setLatLngs(pathCoords);
+
+    // Update info panel
     latlngEl.textContent = `${lat.toFixed(6)} , ${lng.toFixed(6)}`;
     lastUpdateEl.textContent = new Date().toLocaleString('en-PH',{hour12:false});
     distanceEl.textContent = data.distance ? `${data.distance.toFixed(1)} cm` : '— cm';
-    batteryEl.textContent = data.battery ? `${data.battery.toFixed(2)} V` : '— V';
 
-    if (data.sos) {
+    // Battery %
+    if(data.battery){
+      let percent = Math.round((data.battery - 3.0)/(4.2-3.0)*100);
+      percent = Math.max(0, Math.min(100, percent));
+      batteryEl.textContent = `${percent} %`;
+    }
+
+    // Street name
+    streetEl.textContent = await getStreet(lat, lng);
+
+    // Alerts
+    if(data.sos){
       alertsEl.textContent = "⚠️ SOS — Send Help!";
       alertsEl.className = "alert";
       beep.play();
