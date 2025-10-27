@@ -230,7 +230,8 @@
   const db = firebase.database();
 
   // --- Leaflet Map ---
-  const defaultLat = 13.0, defaultLng = 121.0;
+  // Updated default to approximate Lumbang, Laguna (adjust if needed)
+  const defaultLat = 14.3, defaultLng = 121.4;
   const map = L.map('map', { zoomControl: true, attributionControl: true }).setView([defaultLat, defaultLng], 16);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -271,23 +272,31 @@
   });
   playSoundBtn.addEventListener('click', ()=> beep.play());
 
-  // --- Reverse Geocoding ---
+  // --- Reverse Geocoding with better error handling ---
   async function getStreet(lat, lng){
     try {
-      const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`;
+      const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=18&addressdetails=1`;
       const res = await fetch(url, { headers: {'User-Agent':'STEP Tracker'} });
+      if (!res.ok) throw new Error('Geocoding failed');
       const data = await res.json();
-      return data.address ? (data.address.road || data.display_name) : 'Unknown';
-    } catch(e){ return 'Unknown'; }
+      console.log('Geocoding data:', data); // Debugging: Check console for address details
+      return data.address ? (data.address.road || data.display_name || 'Unknown') : 'Unknown';
+    } catch(e){ 
+      console.error('Geocoding error:', e); // Debugging
+      return 'Unknown'; 
+    }
   }
 
   // --- Firebase listener ---
   const shoeRef = db.ref('shoe');
   shoeRef.on('value', async snap => {
     const data = snap.val();
+    console.log('Firebase data:', data); // Debugging: Check console for received data
+
     if(!data){ 
       connectStatusEl.textContent='No Data'; 
       connectStatusEl.style.background= '#555'; 
+      alert('No data received from device. Check Firebase or device connection.'); // Alert for debugging
       return; 
     }
 
@@ -296,6 +305,8 @@
 
     const lat = data.latitude || defaultLat;
     const lng = data.longitude || defaultLng;
+
+    console.log('Using coordinates:', lat, lng); // Debugging
 
     // Smooth marker movement
     marker.setLatLng([lat,lng]);
@@ -317,9 +328,9 @@
       percent = Math.max(0, Math.min(100, percent));
       batteryEl.textContent = `${percent}%`;
       if(percent < 20) {
-        batteryEl.style.color = var(--danger);
+        batteryEl.style.color = 'var(--danger)';
       } else {
-        batteryEl.style.color = var(--accent);
+        batteryEl.style.color = 'var(--accent)';
       }
     }
 
