@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>STEP Tracker — Guardian Dashboard</title>
+  <title>S.T.E.P — Guardian Monitoring</title>
 
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
@@ -122,7 +122,7 @@
     .btn-row {
       display: flex;
       gap: 10px;
-      justify-content: space-between;
+      justify-content: flex-end;
       margin-top: auto;
     }
 
@@ -162,7 +162,6 @@
       .panel { border-left: none; border-top: 2px solid #222; }
     }
 
-    /* Accessibility improvements */
     .sr-only {
       position: absolute;
       width: 1px;
@@ -175,7 +174,6 @@
       border: 0;
     }
 
-    /* Smooth animations for marker movement */
     .leaflet-marker-icon {
       transition: transform 0.5s ease;
     }
@@ -183,7 +181,7 @@
 </head>
 <body>
   <header>
-    <div>👟 STEP Tracker — Guardian</div>
+    <div>👟 S.T.E.P — Guardian Monitoring</div>
     <div id="connectStatus" class="status-pill" aria-live="polite">Connecting...</div>
   </header>
 
@@ -196,16 +194,15 @@
       <div class="info-box"><span>Last Location:</span><span class="value" id="latlng" aria-live="polite">— , —</span></div>
       <div class="info-box"><span>Last Update:</span><span class="value" id="lastUpdate" aria-live="polite">—</span></div>
       <div class="info-box"><span>Distance to Obstacle:</span><span class="value" id="distance" aria-live="polite">— cm</span></div>
-      <div id="alerts" class="ok status-pill" aria-live="assertive">No alerts</div>
+      <div id="alerts" class="status-pill" aria-live="assertive">No alerts</div>
 
       <div class="btn-row">
-        <button id="playSound" aria-label="Play sound to alert the device">🔔 Play Sound</button>
         <button id="centerBtn" aria-label="Center map on device location">📍 Center Map</button>
       </div>
     </div>
   </main>
 
-  <footer>© 2025 STEP Smart Blind Shoe | Designed for accessibility and real-time tracking</footer>
+  <footer>© 2025 S.T.E.P Smart Blind Shoe | Designed for accessibility and real-time tracking</footer>
 
   <!-- Scripts -->
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
@@ -228,7 +225,6 @@
   const db = firebase.database();
 
   // --- Leaflet Map ---
-  // Updated default to approximate Lumbang, Laguna (adjust if needed)
   const defaultLat = 14.3, defaultLng = 121.4;
   const map = L.map('map', { zoomControl: true, attributionControl: true }).setView([defaultLat, defaultLng], 16);
 
@@ -237,7 +233,6 @@
     attribution: '© OpenStreetMap contributors'
   }).addTo(map);
 
-  // --- Icon for visually impaired person (person with white cane) ---
   const blindIcon = L.divIcon({
     className: 'custom-icon',
     html: '<div style="width:40px;height:40px;border-radius:50%;background:#FFD400;border:3px solid #000;display:flex;align-items:center;justify-content:center;box-shadow:0 0 15px #FFD400;animation:pulse 2s infinite;"><span style="font-size:24px;" role="img" aria-label="Person with white cane">🧑‍🦯</span></div>',
@@ -247,55 +242,28 @@
 
   let marker = L.marker([defaultLat, defaultLng], {icon: blindIcon}).addTo(map).bindPopup('STEP Device Location');
 
-  // --- Path tracking with smooth line ---
   let pathCoords = [];
   let pathLine = L.polyline(pathCoords, {color:'#FFD400', weight:4, opacity:0.8, dashArray: '10, 10'}).addTo(map);
 
-  // --- Elements ---
   const latlngEl = document.getElementById('latlng');
-  const streetEl = document.getElementById('street');
   const lastUpdateEl = document.getElementById('lastUpdate');
   const distanceEl = document.getElementById('distance');
-  const batteryEl = document.getElementById('battery');
   const alertsEl = document.getElementById('alerts');
   const connectStatusEl = document.getElementById('connectStatus');
   const centerBtn = document.getElementById('centerBtn');
-  const playSoundBtn = document.getElementById('playSound');
-
-  const beep = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
 
   centerBtn.addEventListener('click', ()=> {
     map.panTo(marker.getLatLng());
-    map.setZoom(18); // Zoom in closer for better view
+    map.setZoom(18);
   });
-  playSoundBtn.addEventListener('click', ()=> beep.play());
 
-  // --- Reverse Geocoding with better error handling ---
-  async function getStreet(lat, lng){
-    try {
-      const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=18&addressdetails=1`;
-      const res = await fetch(url, { headers: {'User-Agent':'STEP Tracker'} });
-      if (!res.ok) throw new Error('Geocoding failed');
-      const data = await res.json();
-      console.log('Geocoding data:', data); // Debugging: Check console for address details
-      return data.address ? (data.address.road || data.display_name || 'Unknown') : 'Unknown';
-    } catch(e){ 
-      console.error('Geocoding error:', e); // Debugging
-      return 'Unknown'; 
-    }
-  }
-
-  // --- Firebase listener ---
   const shoeRef = db.ref('shoe');
-  shoeRef.on('value', async snap => {
+  shoeRef.on('value', snap => {
     const data = snap.val();
-    console.log('Firebase data:', data); // Debugging: Check console for received data
-
-    if(!data){ 
-      connectStatusEl.textContent='No Data'; 
-      connectStatusEl.style.background= '#555'; 
-      alert('No data received from device. Check Firebase or device connection.'); // Alert for debugging
-      return; 
+    if(!data){
+      connectStatusEl.textContent='No Data';
+      connectStatusEl.style.background= '#555';
+      return;
     }
 
     connectStatusEl.textContent='Online';
@@ -304,45 +272,27 @@
     const lat = data.latitude || defaultLat;
     const lng = data.longitude || defaultLng;
 
-    console.log('Using coordinates:', lat, lng); // Debugging
-
-    // Smooth marker movement
     marker.setLatLng([lat,lng]);
     map.panTo([lat,lng], {animate: true, duration: 1});
 
-    // Add to path and limit to last 200 points for performance
     pathCoords.push([lat,lng]);
     if(pathCoords.length > 200) pathCoords.shift();
     pathLine.setLatLngs(pathCoords);
 
-    // Update info panel with live updates
     latlngEl.textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
     lastUpdateEl.textContent = new Date().toLocaleString('en-PH',{hour12:false});
     distanceEl.textContent = data.distance ? `${data.distance.toFixed(1)} cm` : '— cm';
 
-    // Alerts with sound and visual feedback
-    if(data.sos){
+    if(data.sos === true){
       alertsEl.textContent = "⚠️ SOS — Send Help!";
       alertsEl.className = "alert";
-      beep.play();
-      // Optional: Vibrate if supported
-      if(navigator.vibrate) navigator.vibrate(500);
     } else {
       alertsEl.textContent = "✅ No Alerts";
       alertsEl.className = "status-pill";
     }
   });
 
-  // --- Additional features for better UX ---
-  // Auto-center on load
   setTimeout(() => map.invalidateSize(), 100);
-
-  // Keyboard navigation for map
-  map.on('keydown', function(e) {
-    if(e.originalEvent.key === 'c') {
-      map.panTo(marker.getLatLng());
-    }
-  });
   </script>
 </body>
 </html>
