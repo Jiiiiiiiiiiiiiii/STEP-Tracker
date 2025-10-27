@@ -320,21 +320,6 @@
     lastUpdateEl.textContent = new Date().toLocaleString('en-PH',{hour12:false});
     distanceEl.textContent = data.distance ? `${data.distance.toFixed(1)} cm` : '— cm';
 
-    // Battery %
-    if(data.battery){
-      let percent = Math.round((data.battery - 3.0)/(4.2-3.0)*100);
-      percent = Math.max(0, Math.min(100, percent));
-      batteryEl.textContent = `${percent}%`;
-      if(percent < 20) {
-        batteryEl.style.color = 'var(--danger)';
-      } else {
-        batteryEl.style.color = 'var(--accent)';
-      }
-    }
-
-    // Street name
-    streetEl.textContent = await getStreet(lat, lng);
-
     // Alerts with sound and visual feedback
     if(data.sos){
       alertsEl.textContent = "⚠️ SOS — Send Help!";
