@@ -122,8 +122,13 @@ const shoeIcon=L.divIcon({
   iconAnchor:[40,40]
 });
 
+// Initialize marker and path
 let marker=L.marker([14.0,121.0],{icon:shoeIcon}).addTo(map);
 let path=L.polyline([], {color:'#FFD400',weight:4,opacity:0.8}).addTo(map);
+
+// Smooth tracking variables
+let currentLat = 14.0, currentLng = 121.0;
+const lerp = (a,b,t)=>a+(b-a)*t;
 
 // Elements
 const latEl=document.getElementById('lat');
@@ -132,23 +137,35 @@ const distanceEl=document.getElementById('distance');
 const statusEl=document.getElementById('status');
 document.getElementById('centerBtn').onclick=()=>map.panTo(marker.getLatLng());
 
-// Realtime update
+// Realtime update from Firebase
 db.ref('shoe').on('value',snap=>{
   const data=snap.val(); if(!data) return;
-  const lat=data.latitude||0,lng=data.longitude||0;
+  const targetLat=data.latitude||0,targetLng=data.longitude||0;
   let dist=data.distance??-1;
 
-  // Update map
-  marker.setLatLng([lat,lng]);
-  path.addLatLng([lat,lng]);
-  map.panTo([lat,lng],{animate:true,duration:1});
+  // Smooth marker movement
+  const steps = 10;
+  let step=0;
+  const animateMarker = ()=>{
+    if(step>=steps) return;
+    currentLat = lerp(currentLat,targetLat,0.2);
+    currentLng = lerp(currentLng,targetLng,0.2);
+    marker.setLatLng([currentLat,currentLng]);
+    map.panTo([currentLat,currentLng],{animate:true,duration:0.2});
+    step++;
+    requestAnimationFrame(animateMarker);
+  }
+  animateMarker();
+
+  // Update path
+  path.addLatLng([targetLat,targetLng]);
 
   // Update info panel
-  latEl.textContent=lat.toFixed(6);
-  lngEl.textContent=lng.toFixed(6);
+  latEl.textContent=targetLat.toFixed(6);
+  lngEl.textContent=targetLng.toFixed(6);
   distanceEl.textContent=dist>0?dist.toFixed(1):'—';
 
-  // Distance logic (fuzzy)
+  // Fuzzy logic for distance
   if(dist<0 || dist>=150){
     statusEl.textContent="✅ Safe";
     statusEl.className='status-pill safe';
