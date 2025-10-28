@@ -2,186 +2,103 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>S.T.E.P Guardian — Real-Time GPS Tracker</title>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>S.T.E.P Guardian - Real-Time Shoe Tracker</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY"></script>
   <style>
     body {
       margin: 0;
-      height: 100vh;
-      background: linear-gradient(135deg, #1f1c2c, #928dab);
       font-family: "Poppins", sans-serif;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
+      background: linear-gradient(135deg, #007bff, #00c6ff);
+      color: white;
+      text-align: center;
     }
-
     #map {
+      height: 90vh;
       width: 100%;
-      height: 100%;
-      position: absolute;
-      top: 0;
-      left: 0;
-      z-index: 1;
-    }
-
-    .panel {
-      position: absolute;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(255, 255, 255, 0.15);
-      backdrop-filter: blur(10px);
       border-radius: 20px;
-      padding: 20px 30px;
-      color: white;
-      text-align: center;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-      z-index: 2;
+      margin-top: 10px;
     }
-
     h1 {
-      font-size: 1.8em;
-      font-weight: 600;
-      margin-bottom: 10px;
+      font-size: 28px;
+      margin: 10px 0;
+      letter-spacing: 2px;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
     }
-
-    .status {
-      font-size: 1.2em;
-      font-weight: bold;
-      padding: 10px 20px;
-      border-radius: 15px;
-      display: inline-block;
-      margin-top: 5px;
-      color: #fff;
-    }
-
-    .safe {
-      background: rgba(0, 255, 0, 0.3);
-      border: 2px solid #00ff80;
-      animation: glowSafe 1.5s infinite alternate;
-    }
-
-    .mild {
-      background: rgba(255, 255, 0, 0.3);
-      border: 2px solid #ffe600;
-      animation: glowMild 1.5s infinite alternate;
-    }
-
-    .danger {
-      background: rgba(255, 0, 0, 0.3);
-      border: 2px solid #ff4d4d;
-      animation: glowDanger 1.5s infinite alternate;
-    }
-
-    @keyframes glowSafe {
-      from { box-shadow: 0 0 10px #00ff80; }
-      to { box-shadow: 0 0 25px #00ff80; }
-    }
-
-    @keyframes glowMild {
-      from { box-shadow: 0 0 10px #ffe600; }
-      to { box-shadow: 0 0 25px #ffe600; }
-    }
-
-    @keyframes glowDanger {
-      from { box-shadow: 0 0 10px #ff4d4d; }
-      to { box-shadow: 0 0 25px #ff4d4d; }
-    }
-
     footer {
-      position: absolute;
-      bottom: 10px;
-      width: 100%;
-      text-align: center;
-      color: white;
-      font-size: 0.9em;
-      z-index: 2;
-      opacity: 0.7;
+      font-size: 14px;
+      color: #eee;
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
+  <h1>👟 S.T.E.P Guardian - Real-Time Shoe Tracker</h1>
   <div id="map"></div>
-  <div class="panel">
-    <h1>👟 S.T.E.P Guardian</h1>
-    <div id="status" class="status safe">SAFE — No Obstacle</div>
-    <div style="margin-top:10px;font-size:0.9em;">Real-Time GPS & Proximity Monitor</div>
-  </div>
-  <footer>© 2025 S.T.E.P Guardian | Powered by Firebase + Google Maps</footer>
+  <footer>Made with ❤️ by Mark’s Smart Shoe Project</footer>
 
   <script>
+    // =========================
     // 🔥 Firebase Configuration
+    // =========================
     const firebaseConfig = {
       apiKey: "AIzaSyCEPsPPxprCkb70JAre73vo0jo3YA6uZQ4",
       authDomain: "step-gps-tracker.firebaseapp.com",
       databaseURL: "https://step-gps-tracker-default-rtdb.asia-southeast1.firebasedatabase.app",
       projectId: "step-gps-tracker",
       storageBucket: "step-gps-tracker.appspot.com",
-      messagingSenderId: "637484283423",
-      appId: "1:637484283423:web:5a11b2a6e3b3c543e8e82a"
+      messagingSenderId: "1029384756",
+      appId: "1:1029384756:web:1234567890abcdef"
     };
 
-    const app = firebase.initializeApp(firebaseConfig);
+    firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
     let map, marker;
 
+    // 🗺️ Initialize Map
     function initMap(lat = 14.3366, lng = 121.1441) {
       map = new google.maps.Map(document.getElementById("map"), {
         center: { lat, lng },
-        zoom: 17,
+        zoom: 18,
         mapTypeId: "roadmap",
         styles: [
-          { elementType: "geometry", stylers: [{ color: "#1d2c4d" }] },
-          { elementType: "labels.text.fill", stylers: [{ color: "#8ec3b9" }] },
-          { elementType: "labels.text.stroke", stylers: [{ color: "#1a3646" }] },
-        ],
+          { featureType: "poi", stylers: [{ visibility: "off" }] },
+          { featureType: "transit", stylers: [{ visibility: "off" }] }
+        ]
       });
 
       const shoeIcon = {
-        url: "https://cdn-icons-png.flaticon.com/512/814/814513.png", // 🥿 shoe icon (transparent)
-        scaledSize: new google.maps.Size(50, 50),
+        url: "https://cdn-icons-png.flaticon.com/512/3580/3580382.png", // transparent shoe icon
+        scaledSize: new google.maps.Size(55, 55),
+        anchor: new google.maps.Point(27, 27)
       };
 
       marker = new google.maps.Marker({
         position: { lat, lng },
-        map: map,
+        map,
         icon: shoeIcon,
-        title: "Shoe Location",
+        title: "Your Smart Shoe"
       });
     }
 
-    function updateMap(lat, lng) {
-      const newPos = new google.maps.LatLng(lat, lng);
-      marker.setPosition(newPos);
-      map.panTo(newPos);
-    }
-
-    // 🛰️ Firebase Realtime Listener
+    // 🔁 Real-time Firebase Listener
     db.ref("/shoe").on("value", (snapshot) => {
       const data = snapshot.val();
       if (!data) return;
 
-      const { latitude, longitude, distance, sos } = data;
-      updateMap(latitude, longitude);
+      const lat = parseFloat(data.latitude);
+      const lng = parseFloat(data.longitude);
 
-      const status = document.getElementById("status");
-      if (distance >= 150) {
-        status.textContent = "SAFE — No Obstacle";
-        status.className = "status safe";
-      } else if (distance >= 30 && distance < 150) {
-        status.textContent = "MILD ALERT — Obstacle Ahead";
-        status.className = "status mild";
-      } else if (distance < 30) {
-        status.textContent = "DANGER — Very Close!";
-        status.className = "status danger";
+      if (!map) {
+        initMap(lat, lng);
+      } else {
+        marker.setPosition({ lat, lng });
+        map.panTo({ lat, lng });
       }
     });
-
-    window.onload = () => initMap();
   </script>
 </body>
 </html>
