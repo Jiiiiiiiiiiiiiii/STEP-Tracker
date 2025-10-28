@@ -1,118 +1,211 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>S.T.E.P Guardian Monitoring</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
-<style>
-body{margin:0;font-family:'Poppins',sans-serif;background:#111;color:#eee;}
-#map{height:100vh;width:100%;}
-.info-panel{
-  position:absolute;top:10px;left:10px;width:300px;background:#222;padding:20px;border-radius:10px;z-index:1000;
-  box-shadow:0 0 15px #FFD400;
-}
-.info-panel h2{color:#FFD400;text-align:center;margin-bottom:10px;}
-.info-row{display:flex;justify-content:space-between;margin-bottom:8px;font-size:16px;}
-.status-pill{padding:8px;border-radius:8px;font-weight:700;text-align:center;}
-.safe{background:#4CAF50;color:#000;}
-.warning{background:#FFC107;color:#000;}
-.alert{background:#ff4d4d;color:#000;}
-#centerBtn{margin-top:10px;width:100%;padding:10px;border:none;background:#FFD400;color:#000;font-weight:700;border-radius:8px;cursor:pointer;}
-#centerBtn:hover{background:#ffe44d;}
-</style>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>S.T.E.P — Guardian Dashboard (Realtime)</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
+  <!-- Google Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet"/>
+
+  <style>
+    :root{
+      --bg:#0d0d0d; --card:#141414; --accent:#FFD400; --text:#eaeaea;
+      --muted:#999; --danger:#ff4d4d; --warning:#FFC107; --success:#4CAF50;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;font-family:'Poppins',sans-serif}
+    html,body,#map{height:100%}
+    body{background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+
+    header{
+      background:linear-gradient(90deg,#000,#111,#222);
+      padding:14px 20px;border-bottom:2px solid var(--accent);
+      display:flex;align-items:center;justify-content:space-between;color:var(--accent);
+      box-shadow:0 0 12px rgba(255,212,0,0.14);font-weight:700
+    }
+
+    .container{display:grid;grid-template-columns: 2fr 1fr; height:calc(100vh - 64px);}
+
+    #map{width:100%;height:100%}
+
+    .panel{
+      background:var(--card); padding:22px; border-left:2px solid #222;
+      display:flex;flex-direction:column; gap:14px; overflow:auto;
+    }
+
+    .title{font-size:20px;color:var(--accent);text-align:center;font-weight:700}
+    .info-row{display:flex;justify-content:space-between;align-items:center;background:#0f0f0f;padding:10px;border-radius:10px;border:1px solid #222}
+    .info-row span.value{color:var(--accent);font-weight:700}
+    .status-pill{padding:10px 12px;border-radius:10px;text-align:center;font-weight:800}
+    .safe{background:var(--success);color:#000}
+    .mild{background:var(--warning);color:#000}
+    .danger{background:var(--danger);color:#000}
+
+    .controls{margin-top:auto; display:flex; gap:10px}
+    button{flex:1;padding:11px;border-radius:10px;border:none;background:var(--accent);color:#000;font-weight:700;cursor:pointer}
+    button:hover{background:#ffe44d; transform:scale(1.02)}
+
+    /* marker bounce animation smoothing */
+    .leaflet-marker-icon{transition: transform 0.6s ease !important}
+
+    @media(max-width:900px){
+      .container{grid-template-columns:1fr;grid-template-rows:1fr 0.95fr}
+      .panel{border-left:none;border-top:2px solid #222}
+    }
+  </style>
 </head>
 <body>
-<div id="map"></div>
-<div class="info-panel">
-  <h2>STEP Guardian</h2>
-  <div class="info-row">Latitude: <span id="lat">—</span></div>
-  <div class="info-row">Longitude: <span id="lng">—</span></div>
-  <div class="info-row">Distance: <span id="distance">—</span> cm</div>
-  <div class="info-row">Status: <span id="status" class="status-pill safe">Safe</span></div>
-  <button id="centerBtn">📍 Center Map</button>
-</div>
+  <header>
+    <div>👟 S.T.E.P — Guardian Monitoring</div>
+    <div id="connectStatus" class="status-pill safe" style="background:var(--muted);color:#fff">Connecting...</div>
+  </header>
 
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script>
-// Firebase config
-const firebaseConfig = {
-  apiKey: "AIzaSyCEPsPPxprCkb70JAre73vo0jo3YA6uZQ4",
-  authDomain: "step-gps-tracker.firebaseapp.com",
-  databaseURL: "https://step-gps-tracker-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "step-gps-tracker",
-  storageBucket: "step-gps-tracker.firebasestorage.app",
-  messagingSenderId: "637274580153",
-  appId: "1:637274580153:web:7566f774dbf5ea4380a768"
-};
-firebase.initializeApp(firebaseConfig);
-const db=firebase.database();
+  <div class="container">
+    <div id="map"></div>
 
-// Map setup
-const defaultLat=14.3, defaultLng=121.4;
-const map=L.map('map').setView([defaultLat,defaultLng],16);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+    <div class="panel" role="region" aria-label="Device information panel">
+      <div class="title">Device Information</div>
 
-// Marker & path
-const deviceIcon=L.divIcon({className:'custom-icon',html:'<div style="width:40px;height:40px;border-radius:50%;background:#FFD400;border:3px solid #000;display:flex;align-items:center;justify-content:center;box-shadow:0 0 15px #FFD400;"><span style="font-size:24px;">👟</span></div>',iconSize:[40,40],iconAnchor:[20,20]});
-let marker=L.marker([defaultLat,defaultLng],{icon:deviceIcon}).addTo(map).bindPopup('STEP Device');
-let pathCoords=[];
-let pathLine=L.polyline(pathCoords,{color:'#FFD400',weight:4,opacity:0.8,dashArray:'10,10'}).addTo(map);
+      <div class="info-row"><div>Last Location</div><div class="value" id="latlng">— , —</div></div>
+      <div class="info-row"><div>Last Update</div><div class="value" id="lastUpdate">—</div></div>
+      <div class="info-row"><div>Distance to Obstacle</div><div class="value" id="distance">— cm</div></div>
+      <div class="info-row"><div>GPS Status</div><div class="value" id="gpsStatus">—</div></div>
 
-// Elements
-const latEl=document.getElementById('lat');
-const lngEl=document.getElementById('lng');
-const distanceEl=document.getElementById('distance');
-const statusEl=document.getElementById('status');
-const centerBtn=document.getElementById('centerBtn');
-centerBtn.addEventListener('click',()=>map.panTo(marker.getLatLng()));
+      <div id="alerts" class="status-pill safe" style="text-align:center">No alerts</div>
 
-// Firebase listener
-db.ref('shoe').on('value',snap=>{
-  const data=snap.val();
-  if(!data) return;
+      <div class="controls">
+        <button id="centerBtn" aria-label="Center map on device">📍 Center Map</button>
+        <button id="followBtn" aria-pressed="true">🔁 Follow</button>
+      </div>
+    </div>
+  </div>
 
-  const lat=data.latitude||defaultLat;
-  const lng=data.longitude||defaultLng;
-  let distance=data.distance;
+  <!-- Firebase + Leaflet -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-  // Treat -1 or invalid distance as Safe
-  if(distance<0 || distance>500) distance=200; 
+  <script>
+  // ====== Firebase config (use your project's keys) ======
+  const firebaseConfig = {
+    apiKey: "AIzaSyCEPsPPxprCkb70JAre73vo0jo3YA6uZQ4",
+    authDomain: "step-gps-tracker.firebaseapp.com",
+    databaseURL: "https://step-gps-tracker-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "step-gps-tracker",
+    storageBucket: "step-gps-tracker.firebasestorage.app",
+    messagingSenderId: "637274580153",
+    appId: "1:637274580153:web:7566f774dbf5ea4380a768"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
 
-  const sos=data.sos;
+  // ====== Map setup ======
+  const defaultLat = 14.3, defaultLng = 121.4; // fallback coordinates
+  const map = L.map('map', {zoomControl:true}).setView([defaultLat, defaultLng], 16);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'© OpenStreetMap contributors'}).addTo(map);
 
-  // Update marker
-  marker.setLatLng([lat,lng]);
-  map.panTo([lat,lng],{animate:true,duration:0.5});
+  // marker visually-friendly icon
+  const deviceIcon = L.divIcon({
+    html: `<div style="width:48px;height:48px;border-radius:50%;background:#FFD400;border:3px solid #000;display:flex;align-items:center;justify-content:center;box-shadow:0 0 16px #FFD400"><span style="font-size:22px">🧑‍🦯</span></div>`,
+    iconSize:[48,48], iconAnchor:[24,24], className:''
+  });
 
-  // Path tracking
-  pathCoords.push([lat,lng]);
-  if(pathCoords.length>200) pathCoords.shift();
-  pathLine.setLatLngs(pathCoords);
+  let marker = L.marker([defaultLat, defaultLng], {icon: deviceIcon}).addTo(map);
+  let accuracyCircle = L.circle([defaultLat, defaultLng], {radius: 20, color:'#ffd400', opacity:0.2}).addTo(map);
+  let path = L.polyline([], {color:'#FFD400', weight:4, opacity:0.9}).addTo(map);
 
-  // Update info panel
-  latEl.textContent=lat.toFixed(6);
-  lngEl.textContent=lng.toFixed(6);
-  distanceEl.textContent=distance>0?distance.toFixed(1):'—';
+  // UI elements
+  const connectStatusEl = document.getElementById('connectStatus');
+  const latlngEl = document.getElementById('latlng');
+  const lastUpdateEl = document.getElementById('lastUpdate');
+  const distanceEl = document.getElementById('distance');
+  const alertsEl = document.getElementById('alerts');
+  const gpsStatusEl = document.getElementById('gpsStatus');
+  const centerBtn = document.getElementById('centerBtn');
+  const followBtn = document.getElementById('followBtn');
 
-  // Status logic
-  if(distance>=150){
-    statusEl.textContent="✅ Safe";
-    statusEl.className='status-pill safe';
-  } else if(distance>=30 && distance<150){
-    statusEl.textContent="🟡 Mild Warning";
-    statusEl.className='status-pill warning';
-  } else if(distance<30){
-    statusEl.textContent="🔴 SOS — Send Help!";
-    statusEl.className='status-pill alert';
+  let follow = true;
+  followBtn.addEventListener('click', ()=> {
+    follow = !follow;
+    followBtn.textContent = follow ? '🔁 Follow' : '🛑 Follow';
+    followBtn.setAttribute('aria-pressed', follow);
+  });
+  centerBtn.addEventListener('click', ()=> map.panTo(marker.getLatLng()));
+
+  // helper: format timestamp
+  function nowString(){ return new Date().toLocaleString('en-PH', {hour12:false}); }
+
+  // Status logic (same thresholds as ESP)
+  function computeStatus(distance){
+    // treat invalid as safe
+    if (distance === null || typeof distance === 'undefined' || isNaN(distance) || distance < 0) {
+      return { label: '✅ Safe', className: 'safe' };
+    }
+    if (distance >= 150) return { label: '✅ Safe', className: 'safe' };
+    if (distance >= 30) return { label: '🟡 Mild Warning', className: 'mild' };
+    return { label: '🔴 SOS — Send Help!', className: 'danger' };
   }
-});
 
-// Adjust map on load
-setTimeout(()=>map.invalidateSize(),100);
-</script>
+  // Realtime listener
+  const shoeRef = db.ref('shoe');
+  shoeRef.on('value', snapshot => {
+    const data = snapshot.val();
+    if (!data) {
+      connectStatusEl.textContent = 'No data';
+      connectStatusEl.style.background = '#666';
+      return;
+    }
+
+    connectStatusEl.textContent = 'Online';
+    connectStatusEl.style.background = 'var(--success)';
+
+    const lat = (typeof data.latitude === 'number') ? data.latitude : defaultLat;
+    const lng = (typeof data.longitude === 'number') ? data.longitude : defaultLng;
+    const distance = (typeof data.distance === 'number') ? data.distance : -1;
+    const gpsValid = !!data.gpsValid || (typeof data.latitude === 'number' && typeof data.longitude === 'number');
+
+    // Update marker + path
+    marker.setLatLng([lat, lng]);
+    accuracyCircle.setLatLng([lat, lng]);
+    // optionally set radius from accuracy field if you send one: accuracyCircle.setRadius(data.accuracy || 8);
+    path.addLatLng([lat, lng]);
+    if (path.getLatLngs().length > 300) {
+      const arr = path.getLatLngs().slice(-300);
+      path.setLatLngs(arr);
+    }
+
+    if (follow) map.panTo([lat, lng], {animate:true, duration:0.6});
+
+    // Update UI
+    latlngEl.textContent = `${lat.toFixed(6)} , ${lng.toFixed(6)}`;
+    lastUpdateEl.textContent = nowString();
+    distanceEl.textContent = (distance >= 0 && distance < 10000) ? `${distance.toFixed(1)} cm` : '—';
+    gpsStatusEl.textContent = gpsValid ? 'GPS OK' : 'No Fix';
+
+    // Alerts & badge
+    const status = computeStatus(distance);
+    alertsEl.textContent = status.label;
+    alertsEl.className = 'status-pill ' + status.className;
+
+    // small visual feedback for danger: flash map center
+    if (status.className === 'danger') {
+      // tiny pulse effect by zooming in a bit then back
+      map.flyTo([lat, lng], Math.max(17, map.getZoom()), {duration: 0.7});
+    }
+  });
+
+  // handle connection errors
+  shoeRef.on('cancel', err => {
+    connectStatusEl.textContent = 'DB Error';
+    connectStatusEl.style.background = '#a00';
+    console.error('Firebase listener canceled', err);
+  });
+
+  // ensure map displays correctly on load
+  setTimeout(() => map.invalidateSize(), 150);
+  </script>
 </body>
 </html>
