@@ -1,84 +1,44 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>S.T.E.P Guardian Monitoring</title>
-
-<!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-
-<!-- Google Font -->
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet"/>
-
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-:root {
-  --bg:#0d0d0d;
-  --card:#141414;
-  --accent:#FFD400;
-  --text:#eaeaea;
-  --muted:#aaa;
-  --danger:#ff4d4d;
-  --warning:#FFD500;
-  --safe:#4CAF50;
+body{margin:0;font-family:'Poppins',sans-serif;background:#111;color:#eee;}
+#map{height:100vh;width:100%;}
+.info-panel{
+  position:absolute;top:10px;left:10px;width:300px;background:#222;padding:20px;border-radius:10px;z-index:1000;
+  box-shadow:0 0 15px #FFD400;
 }
-
-* { box-sizing:border-box; margin:0; padding:0; font-family:'Poppins',sans-serif; }
-
-body { background:var(--bg); color:var(--text); display:flex; flex-direction:column; height:100vh; overflow:hidden; }
-header { background:linear-gradient(90deg,#000,#111,#222); padding:18px 30px; border-bottom:2px solid var(--accent);
-  display:flex; justify-content:space-between; align-items:center; color:var(--accent); font-weight:700; box-shadow:0 0 12px rgba(255,212,0,0.3); }
-main { display:grid; grid-template-columns:2fr 1fr; height:100%; overflow:hidden; }
-#map { width:100%; height:100%; z-index:1; }
-.panel { background:var(--card); padding:25px; display:flex; flex-direction:column; gap:18px; border-left:2px solid #222; overflow-y:auto; }
-.title { font-size:22px; color:var(--accent); font-weight:700; text-align:center; }
-.info-box { background:#111; border:1px solid #222; border-radius:10px; padding:12px 15px; display:flex; justify-content:space-between; align-items:center; font-size:16px; }
-.info-box span.value { color:var(--accent); font-weight:600; }
-.status-pill { background:var(--safe); color:#000; font-weight:700; padding:10px 14px; border-radius:8px; text-align:center; font-size:15px; }
-.alert { font-weight:700; padding:10px; border-radius:8px; text-align:center; font-size:15px; animation:blink 1.2s infinite alternate; }
-.alert.safe { background:var(--safe); color:#000; animation:none; }
-.alert.warning { background:var(--warning); color:#000; }
-.alert.danger { background:var(--danger); color:#000; }
-@keyframes blink { 0%{opacity:1;} 100%{opacity:0.6;} }
-
-.btn-row { display:flex; gap:10px; justify-content:space-between; margin-top:auto; }
-button { flex:1; border:none; background:var(--accent); color:#000; font-weight:700; border-radius:10px; padding:12px; cursor:pointer; font-size:16px; transition:all 0.2s ease; }
-button:hover { background:#ffe44d; transform:scale(1.03); }
-footer { text-align:center; padding:8px; font-size:13px; color:var(--muted); border-top:1px solid #222; }
-@media(max-width:900px){ main{grid-template-columns:1fr; grid-template-rows:1fr 0.9fr;} .panel{border-left:none; border-top:2px solid #222;} }
-.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
-.leaflet-marker-icon { transition: transform 0.5s ease; }
+.info-panel h2{color:#FFD400;text-align:center;margin-bottom:10px;}
+.info-row{display:flex;justify-content:space-between;margin-bottom:8px;font-size:16px;}
+.status-pill{padding:8px;border-radius:8px;font-weight:700;text-align:center;}
+.safe{background:#4CAF50;color:#000;}
+.warning{background:#FFC107;color:#000;}
+.alert{background:#ff4d4d;color:#000;}
+#centerBtn{margin-top:10px;width:100%;padding:10px;border:none;background:#FFD400;color:#000;font-weight:700;border-radius:8px;cursor:pointer;}
+#centerBtn:hover{background:#ffe44d;}
 </style>
 </head>
 <body>
-<header>
-  <div>👟 S.T.E.P Guardian Monitoring</div>
-  <div id="connectStatus" class="status-pill" aria-live="polite">Connecting...</div>
-</header>
+<div id="map"></div>
+<div class="info-panel">
+  <h2>STEP Guardian</h2>
+  <div class="info-row">Latitude: <span id="lat">—</span></div>
+  <div class="info-row">Longitude: <span id="lng">—</span></div>
+  <div class="info-row">Distance: <span id="distance">—</span> cm</div>
+  <div class="info-row">Status: <span id="status" class="status-pill safe">Safe</span></div>
+  <button id="centerBtn">📍 Center Map</button>
+</div>
 
-<main>
-  <div id="map" role="application" aria-label="Map showing STEP device location"></div>
-
-  <div class="panel">
-    <div class="title">Device Information</div>
-    <div class="info-box"><span>Last Location:</span><span class="value" id="latlng" aria-live="polite">— , —</span></div>
-    <div class="info-box"><span>Distance to Obstacle:</span><span class="value" id="distance" aria-live="polite">— cm</span></div>
-    <div id="alerts" class="status-pill alert safe" aria-live="assertive">No Alerts</div>
-    <div class="btn-row">
-      <button id="centerBtn" aria-label="Center map on device location">📍 Center Map</button>
-    </div>
-  </div>
-</main>
-
-<footer>© 2025 S.T.E.P | Guardian Monitoring Dashboard</footer>
-
-<!-- Firebase & Leaflet -->
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
 <script>
-// --- Firebase config ---
+// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyCEPsPPxprCkb70JAre73vo0jo3YA6uZQ4",
   authDomain: "step-gps-tracker.firebaseapp.com",
@@ -89,70 +49,65 @@ const firebaseConfig = {
   appId: "1:637274580153:web:7566f774dbf5ea4380a768"
 };
 firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+const db=firebase.database();
 
-// --- Leaflet Map ---
+// Map setup
 const defaultLat=14.3, defaultLng=121.4;
-const map = L.map('map').setView([defaultLat, defaultLng],16);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'© OpenStreetMap contributors'}).addTo(map);
+const map=L.map('map').setView([defaultLat,defaultLng],16);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
 
-// Marker icon
-const blindIcon = L.divIcon({
-  className:'custom-icon',
-  html:'<div style="width:40px;height:40px;border-radius:50%;background:#FFD400;border:3px solid #000;display:flex;align-items:center;justify-content:center;box-shadow:0 0 15px #FFD400;"><span style="font-size:24px;">🧑‍🦯</span></div>',
-  iconSize:[40,40], iconAnchor:[20,20]
-});
-let marker = L.marker([defaultLat, defaultLng],{icon:blindIcon}).addTo(map).bindPopup('STEP Device Location');
-
-// Path line
-let pathCoords = [];
-let pathLine = L.polyline(pathCoords, {color:'#FFD400', weight:4, opacity:0.8, dashArray:'10,10'}).addTo(map);
+// Marker & path
+const deviceIcon=L.divIcon({className:'custom-icon',html:'<div style="width:40px;height:40px;border-radius:50%;background:#FFD400;border:3px solid #000;display:flex;align-items:center;justify-content:center;box-shadow:0 0 15px #FFD400;"><span style="font-size:24px;">👟</span></div>',iconSize:[40,40],iconAnchor:[20,20]});
+let marker=L.marker([defaultLat,defaultLng],{icon:deviceIcon}).addTo(map).bindPopup('STEP Device');
+let pathCoords=[];
+let pathLine=L.polyline(pathCoords,{color:'#FFD400',weight:4,opacity:0.8,dashArray:'10,10'}).addTo(map);
 
 // Elements
-const latlngEl = document.getElementById('latlng');
-const distanceEl = document.getElementById('distance');
-const alertsEl = document.getElementById('alerts');
-const connectStatusEl = document.getElementById('connectStatus');
-const centerBtn = document.getElementById('centerBtn');
+const latEl=document.getElementById('lat');
+const lngEl=document.getElementById('lng');
+const distanceEl=document.getElementById('distance');
+const statusEl=document.getElementById('status');
+const centerBtn=document.getElementById('centerBtn');
+centerBtn.addEventListener('click',()=>map.panTo(marker.getLatLng()));
 
-centerBtn.addEventListener('click', ()=>{ map.panTo(marker.getLatLng()); map.setZoom(18); });
+// Firebase listener
+db.ref('shoe').on('value',snap=>{
+  const data=snap.val();
+  if(!data) return;
 
-// --- Firebase listener ---
-const shoeRef = db.ref('shoe');
-shoeRef.on('value', snap=>{
-  const data = snap.val();
-  if(!data){
-    connectStatusEl.textContent='No Data'; connectStatusEl.style.background='#555'; return;
-  }
+  const lat=data.latitude||defaultLat;
+  const lng=data.longitude||defaultLng;
+  const distance=data.distance||-1;
+  const sos=data.sos;
 
-  connectStatusEl.textContent='Online'; connectStatusEl.style.background='var(--safe)';
-
-  const lat = data.latitude||defaultLat;
-  const lng = data.longitude||defaultLng;
+  // Update marker
   marker.setLatLng([lat,lng]);
-  map.panTo([lat,lng],{animate:true, duration:1});
+  map.panTo([lat,lng],{animate:true,duration:0.5});
 
   // Path tracking
   pathCoords.push([lat,lng]);
   if(pathCoords.length>200) pathCoords.shift();
   pathLine.setLatLngs(pathCoords);
 
-  // Update info
-  latlngEl.textContent=`${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-  distanceEl.textContent = data.distance ? `${data.distance.toFixed(1)} cm` : '— cm';
+  // Update info panel
+  latEl.textContent=lat.toFixed(6);
+  lngEl.textContent=lng.toFixed(6);
+  distanceEl.textContent=distance>0?distance.toFixed(1):'—';
 
-  // Alerts based on distance
-  if(data.distance > 150){
-    alertsEl.textContent="✅ Safe";
-    alertsEl.className="status-pill alert safe";
-  } else if(data.distance > 30){
-    alertsEl.textContent="🟡 Mild Warning";
-    alertsEl.className="status-pill alert warning";
-  } else {
-    alertsEl.textContent="🔴 SOS — Send Help!";
-    alertsEl.className="status-pill alert danger";
+  if(distance<0 || distance>150){
+    statusEl.textContent="✅ Safe";
+    statusEl.className='status-pill safe';
+  } else if(distance>=30 && distance<=150){
+    statusEl.textContent="🟡 Mild Warning";
+    statusEl.className='status-pill warning';
+  } else if(distance<30){
+    statusEl.textContent="🔴 SOS — Send Help!";
+    statusEl.className='status-pill alert';
   }
 });
+
+// Adjust map on load
+setTimeout(()=>map.invalidateSize(),100);
 </script>
 </body>
 </html>
