@@ -108,27 +108,23 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
  {maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
 
 // Blind person icon + radar
-const shoeHTML=`
+const markerHTML=`
 <div style="position:relative;width:80px;height:80px;display:flex;align-items:center;justify-content:center;">
   <div class="pulse"></div>
   <div class="sweep"></div>
   <img src="https://cdn-icons-png.flaticon.com/512/616/616408.png" 
        style="width:45px;height:45px;z-index:2;filter:drop-shadow(0 0 10px #FFD400);">
 </div>`;
-const shoeIcon=L.divIcon({
-  html:shoeHTML,
+
+const blindIcon=L.divIcon({
+  html: markerHTML,
   className:'',
   iconSize:[80,80],
   iconAnchor:[40,40]
 });
 
-// Initialize marker and path
-let marker=L.marker([14.0,121.0],{icon:shoeIcon}).addTo(map);
+let marker=L.marker([14.0,121.0],{icon:blindIcon}).addTo(map);
 let path=L.polyline([], {color:'#FFD400',weight:4,opacity:0.8}).addTo(map);
-
-// Smooth tracking variables
-let currentLat = 14.0, currentLng = 121.0;
-const lerp = (a,b,t)=>a+(b-a)*t;
 
 // Elements
 const latEl=document.getElementById('lat');
@@ -137,35 +133,23 @@ const distanceEl=document.getElementById('distance');
 const statusEl=document.getElementById('status');
 document.getElementById('centerBtn').onclick=()=>map.panTo(marker.getLatLng());
 
-// Realtime update from Firebase
+// Realtime update
 db.ref('shoe').on('value',snap=>{
   const data=snap.val(); if(!data) return;
-  const targetLat=data.latitude||0,targetLng=data.longitude||0;
-  let dist=data.distance??-1;
+  const lat=data.latitude||14.0,lng=data.longitude||121.0;
+  const dist=data.distance??-1;
 
-  // Smooth marker movement
-  const steps = 10;
-  let step=0;
-  const animateMarker = ()=>{
-    if(step>=steps) return;
-    currentLat = lerp(currentLat,targetLat,0.2);
-    currentLng = lerp(currentLng,targetLng,0.2);
-    marker.setLatLng([currentLat,currentLng]);
-    map.panTo([currentLat,currentLng],{animate:true,duration:0.2});
-    step++;
-    requestAnimationFrame(animateMarker);
-  }
-  animateMarker();
-
-  // Update path
-  path.addLatLng([targetLat,targetLng]);
+  // Update map
+  marker.setLatLng([lat,lng]);
+  path.addLatLng([lat,lng]);
+  map.panTo([lat,lng],{animate:true,duration:1});
 
   // Update info panel
-  latEl.textContent=targetLat.toFixed(6);
-  lngEl.textContent=targetLng.toFixed(6);
+  latEl.textContent=lat.toFixed(6);
+  lngEl.textContent=lng.toFixed(6);
   distanceEl.textContent=dist>0?dist.toFixed(1):'—';
 
-  // Fuzzy logic for distance
+  // Fuzzy logic: 150cm ↑ / no signal → Safe, 30–150 cm → Mild, <30 cm → Danger
   if(dist<0 || dist>=150){
     statusEl.textContent="✅ Safe";
     statusEl.className='status-pill safe';
