@@ -66,13 +66,16 @@ db.ref('shoe').on('value',snap=>{
   const distance=data.distance||-1;
   const sos=data.sos;
 
+  // Marker movement realtime
   marker.setLatLng([lat,lng]);
   map.panTo([lat,lng],{animate:true,duration:0.5});
 
+  // Path tracking
   pathCoords.push([lat,lng]);
   if(pathCoords.length>200) pathCoords.shift();
   pathLine.setLatLngs(pathCoords);
 
+  // Update info
   distanceEl.textContent=distance>0?distance.toFixed(1)+' cm':'—';
 
   if(distance<0 || distance>150){
