@@ -108,19 +108,27 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
  {maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
 
 // Blind person icon + radar
-const shoeHTML=`
+const shoeHTML = `
 <div style="position:relative;width:80px;height:80px;display:flex;align-items:center;justify-content:center;">
   <div class="pulse"></div>
   <div class="sweep"></div>
-  <img src="https://cdn-icons-png.flaticon.com/512/616/616408.png" 
-       style="width:45px;height:45px;z-index:2;filter:drop-shadow(0 0 10px #FFD400);">
+  <img src="https://cdn-icons-png.flaticon.com/512/863/863686.png"
+       style="
+         width:50px;
+         height:50px;
+         z-index:2;
+         filter: drop-shadow(0 0 15px #FFD400)
+                 brightness(1.5)
+                 sepia(1)
+                 hue-rotate(30deg)
+                 saturate(5);
+         transition: transform 0.3s;
+       "
+       onmouseover="this.style.transform='scale(1.2) rotate(-10deg)'"
+       onmouseout="this.style.transform='scale(1) rotate(0deg)';"
+  >
 </div>`;
-const shoeIcon=L.divIcon({
-  html:shoeHTML,
-  className:'',
-  iconSize:[80,80],
-  iconAnchor:[40,40]
-});
+
 
 // Initialize marker and path
 let marker=L.marker([14.0,121.0],{icon:shoeIcon}).addTo(map);
