@@ -1,104 +1,264 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>S.T.E.P Guardian - Real-Time Shoe Tracker</title>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-  <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY"></script>
-  <style>
-    body {
-      margin: 0;
-      font-family: "Poppins", sans-serif;
-      background: linear-gradient(135deg, #007bff, #00c6ff);
-      color: white;
-      text-align: center;
-    }
-    #map {
-      height: 90vh;
-      width: 100%;
-      border-radius: 20px;
-      margin-top: 10px;
-    }
-    h1 {
-      font-size: 28px;
-      margin: 10px 0;
-      letter-spacing: 2px;
-      text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
-    }
-    footer {
-      font-size: 14px;
-      color: #eee;
-      margin-top: 10px;
-    }
-  </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>S.T.E.P Guardian Monitoring</title>
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<!-- Google Font -->
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet"/>
+
+<style>
+:root {
+  --bg: #0d0d0d;
+  --card: #141414;
+  --accent: #FFD400;
+  --text: #eaeaea;
+  --danger: #ff4d4d;
+  --success: #4CAF50;
+  --warning: #FFC107;
+}
+* { box‐sizing: border‐box; margin:0; padding:0; font‐family:'Poppins', sans‐serif; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  display:flex;
+  flex‐direction:column;
+  height:100vh;
+  overflow:hidden;
+}
+header {
+  background:linear‐gradient(90deg, #000, #111, #222);
+  padding:18px 30px;
+  border‐bottom:2px solid var(--accent);
+  display:flex;
+  align‐items:center;
+  justify‐content:space-between;
+  color:var(--accent);
+  font‐weight:700;
+  letter‐spacing:0.5px;
+}
+main {
+  display:grid;
+  grid‐template‐columns:2fr 1fr;
+  height:100%;
+  overflow:hidden;
+}
+#map {
+  width:100%;
+  height:100%;
+  z‐index:1;
+}
+.panel {
+  background: var(--card);
+  padding:25px;
+  display:flex;
+  flex‐direction:column;
+  gap:18px;
+  border-left:2px solid #222;
+  box‐shadow: inset 0 0 12px rgba(255,212,0,0.05);
+  overflow-y:auto;
+}
+.title {
+  font-size:22px;
+  color:var(--accent);
+  font‐weight:700;
+  text-align:center;
+}
+.info-box {
+  background:#111;
+  border:1px solid #222;
+  border-radius:10px;
+  padding:12px 15px;
+  display:flex;
+  justify-content:space-between;
+  align‐items:center;
+  font-size:16px;
+}
+.info-box span.value {
+  color: var(--accent);
+  font‐weight:600;
+}
+.status-pill {
+  background: var(--success);
+  color:#000;
+  font‐weight:700;
+  padding:10px 14px;
+  border‐radius:8px;
+  text‐align:center;
+  font‐size:15px;
+}
+.alert {
+  background: var(--danger);
+  color:#000;
+  font‐weight:700;
+  padding:10px;
+  border‐radius:8px;
+  text‐align:center;
+  font‐size:15px;
+  animation:blink 1.2s infinite alternate;
+}
+.warning {
+  background: var(--warning);
+  color:#000;
+  font‐weight:700;
+  padding:10px;
+  border‐radius:8px;
+  text‐align:center;
+  font‐size:15px;
+  animation:blink 1.2s infinite alternate;
+}
+@keyframes blink {
+  0% { opacity:1; }
+  100% { opacity:0.6; }
+}
+.btn-row {
+  display:flex;
+  gap:10px;
+  justify-content:space‐between;
+  margin‐top:auto;
+}
+button {
+  flex:1;
+  border:none;
+  background: var(--accent);
+  color:#000;
+  font‐weight:700;
+  border‐radius:10px;
+  padding:12px;
+  cursor:pointer;
+  font‐size:16px;
+  transition:all 0.2s ease;
+}
+button:hover {
+  background:#ffe44d;
+  transform:scale(1.03);
+}
+button:focus {
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
+footer {
+  text‐align:center;
+  padding:8px;
+  font‐size:13px;
+  color:var(--muted);
+  border‐top:1px solid #222;
+}
+@media(max‐width:900px) {
+  main {
+    grid‐template‐columns:1fr;
+    grid‐template‐rows:1fr 0.9fr;
+  }
+  .panel {
+    border‐left:none;
+    border‐top:2px solid #222;
+  }
+}
+.leaflet-marker-icon {
+  transition: transform 0.5s ease;
+}
+</style>
 </head>
 <body>
-  <h1>👟 S.T.E.P Guardian - Real-Time Shoe Tracker</h1>
-  <div id="map"></div>
-  <footer>Made with ❤️ by Mark’s Smart Shoe Project</footer>
+<header>
+  <div>👟 S.T.E.P Guardian Monitoring</div>
+  <div id="connectStatus" class="status-pill" aria-live="polite">Connecting...</div>
+</header>
+<main>
+  <div id="map" role="application" aria‐label="Interactive map showing device location"></div>
+  <div class="panel">
+    <div class="title">Device Information</div>
+    <div class="info-box"><span>Last Location:</span><span class="value" id="latlng">— , —</span></div>
+    <div class="info-box"><span>Last Update:</span><span class="value" id="lastUpdate">—</span></div>
+    <div class="info-box"><span>Distance to Obstacle:</span><span class="value" id="distance">— cm</span></div>
+    <div id="alerts" class="status-pill" aria‐live="assertive">No alerts</div>
+  </div>
+</main>
+<footer>© 2025 S.T.E.P Guardian Monitoring | Real-Time Tracking</footer>
 
-  <script>
-    // =========================
-    // 🔥 Firebase Configuration
-    // =========================
-    const firebaseConfig = {
-      apiKey: "AIzaSyCEPsPPxprCkb70JAre73vo0jo3YA6uZQ4",
-      authDomain: "step-gps-tracker.firebaseapp.com",
-      databaseURL: "https://step-gps-tracker-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "step-gps-tracker",
-      storageBucket: "step-gps-tracker.appspot.com",
-      messagingSenderId: "1029384756",
-      appId: "1:1029384756:web:1234567890abcdef"
-    };
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCEPsPPxprCkb70JAre73vo0jo3YA6uZQ4",
+  authDomain: "step-gps-tracker.firebaseapp.com",
+  databaseURL: "https://step-gps-tracker-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "step-gps-tracker",
+  storageBucket: "step-gps-tracker.firebasestorage.app",
+  messagingSenderId: "637274580153",
+  appId: "1:637274580153:web:7566f774dbf5ea4380a768"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const shoeRef = db.ref('shoe');
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+// Leaflet Map Initialization
+const defaultLat = 14.3, defaultLng = 121.4;
+const map = L.map('map', { zoomControl:true, attributionControl:true }).setView([defaultLat, defaultLng],16);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom:19,
+  attribution:'© OpenStreetMap contributors'
+}).addTo(map);
 
-    let map, marker;
+const blindIcon = L.divIcon({
+  className:'custom-icon',
+  html:'<span style="font-size:32px;">👟</span>',
+  iconSize:[32,32],
+  iconAnchor:[16,16]
+});
+let marker = L.marker([defaultLat, defaultLng], {icon:blindIcon}).addTo(map);
+let pathCoords = [];
+let pathLine = L.polyline(pathCoords, {color:'#FFD400', weight:4, opacity:0.8}).addTo(map);
 
-    // 🗺️ Initialize Map
-    function initMap(lat = 14.3366, lng = 121.1441) {
-      map = new google.maps.Map(document.getElementById("map"), {
-        center: { lat, lng },
-        zoom: 18,
-        mapTypeId: "roadmap",
-        styles: [
-          { featureType: "poi", stylers: [{ visibility: "off" }] },
-          { featureType: "transit", stylers: [{ visibility: "off" }] }
-        ]
-      });
+const latlngEl     = document.getElementById('latlng');
+const lastUpdateEl = document.getElementById('lastUpdate');
+const distanceEl   = document.getElementById('distance');
+const alertsEl     = document.getElementById('alerts');
+const connectStatusEl = document.getElementById('connectStatus');
 
-      const shoeIcon = {
-        url: "https://cdn-icons-png.flaticon.com/512/3580/3580382.png", // transparent shoe icon
-        scaledSize: new google.maps.Size(55, 55),
-        anchor: new google.maps.Point(27, 27)
-      };
+shoeRef.on('value', snap => {
+  const data = snap.val();
+  if(!data) {
+    connectStatusEl.textContent = 'No Data';
+    connectStatusEl.style.background='#555';
+    return;
+  }
 
-      marker = new google.maps.Marker({
-        position: { lat, lng },
-        map,
-        icon: shoeIcon,
-        title: "Your Smart Shoe"
-      });
-    }
+  connectStatusEl.textContent = 'Online';
+  connectStatusEl.style.background = 'var(--success)';
 
-    // 🔁 Real-time Firebase Listener
-    db.ref("/shoe").on("value", (snapshot) => {
-      const data = snapshot.val();
-      if (!data) return;
+  const lat = data.latitude || defaultLat;
+  const lng = data.longitude || defaultLng;
+  const distance = data.distance;
+  const sos = data.sos;
 
-      const lat = parseFloat(data.latitude);
-      const lng = parseFloat(data.longitude);
+  marker.setLatLng([lat, lng]);
+  map.panTo([lat, lng], { animate:true, duration:1 });
 
-      if (!map) {
-        initMap(lat, lng);
-      } else {
-        marker.setPosition({ lat, lng });
-        map.panTo({ lat, lng });
-      }
-    });
-  </script>
+  pathCoords.push([lat,lng]);
+  if(pathCoords.length > 200) pathCoords.shift();
+  pathLine.setLatLngs(pathCoords);
+
+  latlngEl.textContent = lat.toFixed(6) + ' , ' + lng.toFixed(6);
+  lastUpdateEl.textContent = new Date().toLocaleString('en-PH',{hour12:false});
+  distanceEl.textContent = (typeof distance === 'number'? distance.toFixed(1) : '—') + ' cm';
+
+  if(distance >= 150) {
+    alertsEl.textContent = '✅ Safe';
+    alertsEl.className = 'status-pill safe';
+  } else if(distance >= 30 && distance < 150) {
+    alertsEl.textContent = '🟡 Mild Warning';
+    alertsEl.className = 'status-pill warning';
+  } else {
+    alertsEl.textContent = '🔴 SOS — Send Help!';
+    alertsEl.className = 'status-pill alert';
+  }
+});
+</script>
 </body>
 </html>
