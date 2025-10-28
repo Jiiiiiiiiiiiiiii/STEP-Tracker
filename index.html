@@ -77,7 +77,11 @@ db.ref('shoe').on('value',snap=>{
 
   const lat=data.latitude||defaultLat;
   const lng=data.longitude||defaultLng;
-  const distance=data.distance||-1;
+  let distance=data.distance;
+
+  // Treat -1 or invalid distance as Safe
+  if(distance<0 || distance>500) distance=200; 
+
   const sos=data.sos;
 
   // Update marker
@@ -94,10 +98,11 @@ db.ref('shoe').on('value',snap=>{
   lngEl.textContent=lng.toFixed(6);
   distanceEl.textContent=distance>0?distance.toFixed(1):'—';
 
-  if(distance<0 || distance>150){
+  // Status logic
+  if(distance>=150){
     statusEl.textContent="✅ Safe";
     statusEl.className='status-pill safe';
-  } else if(distance>=30 && distance<=150){
+  } else if(distance>=30 && distance<150){
     statusEl.textContent="🟡 Mild Warning";
     statusEl.className='status-pill warning';
   } else if(distance<30){
