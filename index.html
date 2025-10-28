@@ -10,22 +10,25 @@
 body{
   margin:0;
   font-family:'Poppins',sans-serif;
-  background:radial-gradient(circle at center,#000,#090909);
-  color:#fff;
+  background:radial-gradient(circle at center,#000000,#0a0a0a,#111);
   overflow:hidden;
+  color:#fff;
 }
 #map{height:100vh;width:100%;}
 
-/* Info panel */
+/* Glassy Info Panel */
 .info-panel{
-  position:absolute;top:10px;left:10px;width:320px;
-  background:rgba(25,25,25,0.9);
-  padding:20px;border-radius:15px;
-  z-index:1000;backdrop-filter:blur(10px);
-  box-shadow:0 0 25px #FFD400;
+  position:absolute;top:15px;left:15px;width:340px;
+  background:rgba(30,30,30,0.5);
+  border:1px solid rgba(255,255,255,0.2);
+  border-radius:20px;padding:20px;
+  box-shadow:0 0 25px rgba(255,212,0,0.3);
+  backdrop-filter:blur(10px);
+  z-index:9999;
 }
 .info-panel h2{
-  text-align:center;color:#FFD400;margin-bottom:12px;font-size:22px;
+  text-align:center;margin:0 0 10px;
+  color:#FFD400;text-shadow:0 0 10px #FFD400;
 }
 .info-row{
   display:flex;justify-content:space-between;
@@ -35,9 +38,16 @@ body{
   padding:8px 10px;border-radius:10px;
   font-weight:700;text-align:center;
 }
-.safe{background:#4CAF50;color:#000;}
-.warning{background:#FFC107;color:#000;}
-.alert{background:#ff4d4d;color:#000;}
+.safe{background:#00ff88;color:#000;}
+.warning{background:#ffdd33;color:#000;}
+.danger{background:#ff4d4d;color:#000;}
+.battery{
+  padding:5px 10px;border-radius:10px;
+  font-weight:600;color:#000;
+}
+.battery-high{background:#00ff88;}
+.battery-mid{background:#ffdd33;}
+.battery-low{background:#ff4d4d;}
 #centerBtn{
   margin-top:15px;width:100%;padding:10px;
   border:none;background:#FFD400;color:#000;
@@ -48,28 +58,15 @@ body{
 
 /* Radar Animation */
 @keyframes radarPulse {
-  0% {transform:scale(0.2);opacity:0.7;}
+  0% {transform:scale(0.3);opacity:0.8;}
   70% {transform:scale(2.8);opacity:0;}
   100% {opacity:0;}
 }
-@keyframes radarSweep {
-  0% {transform:rotate(0deg);}
-  100% {transform:rotate(360deg);}
-}
 .pulse {
   position:absolute;
-  width:30px;height:30px;border-radius:50%;
-  background:rgba(255,212,0,0.3);
+  width:40px;height:40px;border-radius:50%;
+  background:rgba(255,212,0,0.25);
   animation:radarPulse 2.2s infinite;
-}
-.sweep {
-  position:absolute;
-  width:100px;height:100px;
-  border-top:2px solid rgba(255,212,0,0.5);
-  border-right:2px solid transparent;
-  border-radius:50%;
-  animation:radarSweep 3s linear infinite;
-  transform-origin:center;
 }
 </style>
 </head>
@@ -77,88 +74,98 @@ body{
 <div id="map"></div>
 
 <div class="info-panel">
-  <h2>🩴 STEP Guardian</h2>
-  <div class="info-row">Latitude: <span id="lat">—</span></div>
-  <div class="info-row">Longitude: <span id="lng">—</span></div>
-  <div class="info-row">Distance: <span id="distance">—</span> cm</div>
-  <div class="info-row">Status: <span id="status" class="status-pill safe">Safe</span></div>
+  <h2>👟 S.T.E.P Guardian</h2>
+  <div class="info-row"><b>Latitude:</b> <span id="lat">—</span></div>
+  <div class="info-row"><b>Longitude:</b> <span id="lng">—</span></div>
+  <div class="info-row"><b>Distance:</b> <span id="distance">—</span> cm</div>
+  <div class="info-row"><b>Status:</b> <span id="status" class="status-pill safe">Safe</span></div>
+  <div class="info-row"><b>Battery:</b> <span id="battery" class="battery battery-high">—</span></div>
   <button id="centerBtn">📍 Center Map</button>
 </div>
 
+<!-- Firebase + Map Libraries -->
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
 <script>
-// Firebase config
-const firebaseConfig={
-  apiKey:"AIzaSyCEPsPPxprCkb70JAre73vo0jo3YA6uZQ4",
-  authDomain:"step-gps-tracker.firebaseapp.com",
-  databaseURL:"https://step-gps-tracker-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId:"step-gps-tracker",
-  storageBucket:"step-gps-tracker.firebasestorage.app",
-  messagingSenderId:"637274580153",
-  appId:"1:637274580153:web:7566f774dbf5ea4380a768"
+// 🔥 Firebase Configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyCEPsPPxprCkb70JAre73vo0jo3YA6uZQ4",
+  authDomain: "step-gps-tracker.firebaseapp.com",
+  databaseURL: "https://step-gps-tracker-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "step-gps-tracker",
+  storageBucket: "step-gps-tracker.firebasestorage.app",
+  messagingSenderId: "637274580153",
+  appId: "1:637274580153:web:7566f774dbf5ea4380a768"
 };
 firebase.initializeApp(firebaseConfig);
-const db=firebase.database();
+const db = firebase.database();
 
-// MAP setup
-const map=L.map('map').setView([14.0,121.0],16);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
- {maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+// 🌍 Initialize Leaflet Map
+const map = L.map('map', { zoomControl: false }).setView([14.0, 121.0], 17);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19, attribution: '© OpenStreetMap'
+}).addTo(map);
 
-// Shoe icon + radar
-const shoeHTML=`
-<div style="position:relative;width:80px;height:80px;display:flex;align-items:center;justify-content:center;">
+// 👟 Shoe Marker with Radar Pulse
+const shoeHTML = `
+<div style="position:relative;width:90px;height:90px;display:flex;align-items:center;justify-content:center;">
   <div class="pulse"></div>
-  <div class="sweep"></div>
-  <img src="https://cdn-icons-png.flaticon.com/512/809/809514.png" 
-       style="width:45px;height:45px;z-index:2;filter:drop-shadow(0 0 10px #FFD400);">
+  <img src="https://cdn-icons-png.flaticon.com/512/809/809514.png"
+       style="width:55px;height:55px;z-index:3;filter:drop-shadow(0 0 10px #FFD400);">
 </div>`;
-const shoeIcon=L.divIcon({
-  html:shoeHTML,
-  className:'',
-  iconSize:[80,80],
-  iconAnchor:[40,40]
+const shoeIcon = L.divIcon({
+  html: shoeHTML, className: '', iconSize: [90, 90], iconAnchor: [45, 45]
 });
+let marker = L.marker([14.0,121.0], { icon: shoeIcon }).addTo(map);
+let path = L.polyline([], { color: '#FFD400', weight: 4, opacity: 0.8 }).addTo(map);
 
-let marker=L.marker([14.0,121.0],{icon:shoeIcon}).addTo(map);
-let path=L.polyline([], {color:'#FFD400',weight:4,opacity:0.8}).addTo(map);
+// 🧠 UI Elements
+const latEl = document.getElementById('lat');
+const lngEl = document.getElementById('lng');
+const distanceEl = document.getElementById('distance');
+const statusEl = document.getElementById('status');
+const batteryEl = document.getElementById('battery');
+document.getElementById('centerBtn').onclick = () => map.panTo(marker.getLatLng());
 
-// Elements
-const latEl=document.getElementById('lat');
-const lngEl=document.getElementById('lng');
-const distanceEl=document.getElementById('distance');
-const statusEl=document.getElementById('status');
-document.getElementById('centerBtn').onclick=()=>map.panTo(marker.getLatLng());
+// 🔄 Realtime Firebase Update
+db.ref("shoe").on("value", snap => {
+  const data = snap.val(); if(!data) return;
+  const lat = data.latitude || 0;
+  const lng = data.longitude || 0;
+  const dist = data.distance ?? -1;
+  const batt = data.battery ?? 3.7; // voltage example
 
-// Realtime update
-db.ref('shoe').on('value',snap=>{
-  const data=snap.val(); if(!data) return;
-  const lat=data.latitude||0,lng=data.longitude||0;
-  let dist=data.distance??-1;
-
-  // Update map
+  // Move marker and auto follow
   marker.setLatLng([lat,lng]);
   path.addLatLng([lat,lng]);
-  map.panTo([lat,lng],{animate:true,duration:1});
+  map.panTo([lat,lng], { animate: true, duration: 1 });
 
-  // Update info panel
-  latEl.textContent=lat.toFixed(6);
-  lngEl.textContent=lng.toFixed(6);
-  distanceEl.textContent=dist>0?dist.toFixed(1):'—';
+  // Update Info Panel
+  latEl.textContent = lat.toFixed(6);
+  lngEl.textContent = lng.toFixed(6);
+  distanceEl.textContent = dist > 0 ? dist.toFixed(1) : "—";
 
-  // Distance logic
-  if(dist<0 || dist>=150){
-    statusEl.textContent="✅ Safe";
-    statusEl.className='status-pill safe';
-  } else if(dist>=30 && dist<150){
-    statusEl.textContent="🟡 Mild Warning";
-    statusEl.className='status-pill warning';
-  } else if(dist<30){
-    statusEl.textContent="🔴 Danger Zone";
-    statusEl.className='status-pill alert';
+  // ⚠️ Fuzzy Logic: Distance Zones
+  if (dist >= 150 || dist < 0) {
+    statusEl.textContent = "✅ Safe";
+    statusEl.className = "status-pill safe";
+  } else if (dist >= 30 && dist < 150) {
+    statusEl.textContent = "🟡 Warning";
+    statusEl.className = "status-pill warning";
+  } else {
+    statusEl.textContent = "🔴 Danger";
+    statusEl.className = "status-pill danger";
   }
+
+  // 🔋 Battery Indicator Logic
+  let battStatus = "—", battClass = "battery battery-high";
+  if (batt >= 3.8) { battStatus = `${batt.toFixed(2)}V (High)`; battClass = "battery battery-high"; }
+  else if (batt >= 3.5) { battStatus = `${batt.toFixed(2)}V (Medium)`; battClass = "battery battery-mid"; }
+  else { battStatus = `${batt.toFixed(2)}V (Low)`; battClass = "battery battery-low"; }
+  batteryEl.textContent = battStatus;
+  batteryEl.className = battClass;
 });
 </script>
 </body>
