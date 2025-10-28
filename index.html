@@ -1,189 +1,159 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>S.T.E.P Guardian Monitoring</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>👟 S.T.E.P Guardian – Real-Time Tracking</title>
 
 <!-- Leaflet -->
+
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <!-- Google Font -->
+
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet"/>
 
 <style>
 :root {
-  --bg: #0d0d0d;
-  --card: #141414;
+  --bg: #0b0b0b;
+  --card: #151515;
   --accent: #FFD400;
   --text: #eaeaea;
-  --danger: #ff4d4d;
-  --success: #4CAF50;
-  --warning: #FFC107;
+  --danger: #ff3d3d;
+  --warning: #ffcc33;
+  --success: #39e75f;
 }
-* { box‐sizing: border‐box; margin:0; padding:0; font‐family:'Poppins', sans‐serif; }
+* { margin:0; padding:0; box-sizing:border-box; font-family:'Poppins',sans-serif; }
+
 body {
-  background: var(--bg);
-  color: var(--text);
+  background:var(--bg);
+  color:var(--text);
   display:flex;
-  flex‐direction:column;
+  flex-direction:column;
   height:100vh;
   overflow:hidden;
 }
+
 header {
-  background:linear‐gradient(90deg, #000, #111, #222);
-  padding:18px 30px;
-  border‐bottom:2px solid var(--accent);
-  display:flex;
-  align‐items:center;
-  justify‐content:space-between;
+  background:linear-gradient(90deg,#000,#1a1a1a,#111);
+  padding:16px 30px;
   color:var(--accent);
-  font‐weight:700;
-  letter‐spacing:0.5px;
+  font-weight:700;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  border-bottom:2px solid var(--accent);
 }
+
 main {
   display:grid;
-  grid‐template‐columns:2fr 1fr;
+  grid-template-columns:2fr 1fr;
+  flex:1;
   height:100%;
   overflow:hidden;
 }
+
 #map {
-  width:100%;
   height:100%;
-  z‐index:1;
+  width:100%;
 }
+
 .panel {
-  background: var(--card);
+  background:var(--card);
   padding:25px;
-  display:flex;
-  flex‐direction:column;
-  gap:18px;
   border-left:2px solid #222;
-  box‐shadow: inset 0 0 12px rgba(255,212,0,0.05);
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
   overflow-y:auto;
 }
+
 .title {
   font-size:22px;
+  font-weight:700;
   color:var(--accent);
-  font‐weight:700;
   text-align:center;
+  margin-bottom:10px;
 }
+
 .info-box {
-  background:#111;
-  border:1px solid #222;
+  background:#0f0f0f;
+  padding:14px 18px;
+  margin:8px 0;
   border-radius:10px;
-  padding:12px 15px;
   display:flex;
   justify-content:space-between;
-  align‐items:center;
-  font-size:16px;
+  border:1px solid #222;
 }
+
 .info-box span.value {
-  color: var(--accent);
-  font‐weight:600;
+  color:var(--accent);
+  font-weight:600;
 }
-.status-pill {
-  background: var(--success);
-  color:#000;
-  font‐weight:700;
-  padding:10px 14px;
-  border‐radius:8px;
-  text‐align:center;
-  font‐size:15px;
-}
-.alert {
-  background: var(--danger);
-  color:#000;
-  font‐weight:700;
-  padding:10px;
-  border‐radius:8px;
-  text‐align:center;
-  font‐size:15px;
-  animation:blink 1.2s infinite alternate;
-}
-.warning {
-  background: var(--warning);
-  color:#000;
-  font‐weight:700;
-  padding:10px;
-  border‐radius:8px;
-  text‐align:center;
-  font‐size:15px;
-  animation:blink 1.2s infinite alternate;
-}
-@keyframes blink {
-  0% { opacity:1; }
-  100% { opacity:0.6; }
-}
-.btn-row {
-  display:flex;
-  gap:10px;
-  justify-content:space‐between;
-  margin‐top:auto;
-}
-button {
-  flex:1;
-  border:none;
-  background: var(--accent);
-  color:#000;
-  font‐weight:700;
-  border‐radius:10px;
+
+.status {
+  text-align:center;
   padding:12px;
-  cursor:pointer;
-  font‐size:16px;
-  transition:all 0.2s ease;
+  border-radius:10px;
+  font-weight:700;
+  margin-top:20px;
 }
-button:hover {
-  background:#ffe44d;
-  transform:scale(1.03);
+
+.status.safe { background:var(--success); color:#000; }
+.status.warn { background:var(--warning); color:#000; animation:blink 1s infinite alternate; }
+.status.alert { background:var(--danger); color:#fff; animation:blink 0.8s infinite alternate; }
+
+@keyframes blink {
+  from { opacity:1; }
+  to { opacity:0.6; }
 }
-button:focus {
-  outline:2px solid var(--accent);
-  outline-offset:2px;
-}
+
 footer {
-  text‐align:center;
-  padding:8px;
-  font‐size:13px;
-  color:var(--muted);
-  border‐top:1px solid #222;
-}
-@media(max‐width:900px) {
-  main {
-    grid‐template‐columns:1fr;
-    grid‐template‐rows:1fr 0.9fr;
-  }
-  .panel {
-    border‐left:none;
-    border‐top:2px solid #222;
-  }
-}
-.leaflet-marker-icon {
-  transition: transform 0.5s ease;
+  background:#0a0a0a;
+  text-align:center;
+  padding:10px;
+  font-size:13px;
+  color:#777;
+  border-top:1px solid #222;
 }
 </style>
+
 </head>
 <body>
 <header>
-  <div>👟 S.T.E.P Guardian Monitoring</div>
-  <div id="connectStatus" class="status-pill" aria-live="polite">Connecting...</div>
+  <div>👟 S.T.E.P Guardian Live Tracking</div>
+  <div id="connectStatus" class="status safe">Connecting...</div>
 </header>
+
 <main>
-  <div id="map" role="application" aria‐label="Interactive map showing device location"></div>
+  <div id="map"></div>
+
   <div class="panel">
-    <div class="title">Device Information</div>
-    <div class="info-box"><span>Last Location:</span><span class="value" id="latlng">— , —</span></div>
-    <div class="info-box"><span>Last Update:</span><span class="value" id="lastUpdate">—</span></div>
-    <div class="info-box"><span>Distance to Obstacle:</span><span class="value" id="distance">— cm</span></div>
-    <div id="alerts" class="status-pill" aria‐live="assertive">No alerts</div>
+    <div>
+      <div class="title">Device Information</div>
+      <div class="info-box"><span>Latitude:</span><span class="value" id="lat">—</span></div>
+      <div class="info-box"><span>Longitude:</span><span class="value" id="lng">—</span></div>
+      <div class="info-box"><span>Distance:</span><span class="value" id="distance">— cm</span></div>
+      <div class="info-box"><span>Last Update:</span><span class="value" id="updateTime">—</span></div>
+      <div id="alertBox" class="status safe">✅ Safe</div>
+    </div>
   </div>
 </main>
-<footer>© 2025 S.T.E.P Guardian Monitoring | Real-Time Tracking</footer>
+
+<footer>© 2025 S.T.E.P Guardian | Real-Time GPS Tracker</footer>
+
+<!-- Firebase -->
 
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+
 <script>
+// ============================
+// 🔥 FIREBASE CONFIG
+// ============================
 const firebaseConfig = {
   apiKey: "AIzaSyCEPsPPxprCkb70JAre73vo0jo3YA6uZQ4",
   authDomain: "step-gps-tracker.firebaseapp.com",
@@ -195,70 +165,82 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-const shoeRef = db.ref('shoe');
+const ref = db.ref("shoe");
 
-// Leaflet Map Initialization
-const defaultLat = 14.3, defaultLng = 121.4;
-const map = L.map('map', { zoomControl:true, attributionControl:true }).setView([defaultLat, defaultLng],16);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+// ============================
+// 🗺️ LEAFLET MAP
+// ============================
+const map = L.map("map").setView([14.3,121.4],16);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom:19,
-  attribution:'© OpenStreetMap contributors'
+  attribution:'© OpenStreetMap'
 }).addTo(map);
 
-const blindIcon = L.divIcon({
-  className:'custom-icon',
+const icon = L.divIcon({
   html:'<span style="font-size:32px;">👟</span>',
+  className:'',
   iconSize:[32,32],
   iconAnchor:[16,16]
 });
-let marker = L.marker([defaultLat, defaultLng], {icon:blindIcon}).addTo(map);
+let marker = L.marker([14.3,121.4],{icon}).addTo(map);
 let pathCoords = [];
-let pathLine = L.polyline(pathCoords, {color:'#FFD400', weight:4, opacity:0.8}).addTo(map);
+let pathLine = L.polyline(pathCoords,{color:"#FFD400",weight:4}).addTo(map);
 
-const latlngEl     = document.getElementById('latlng');
-const lastUpdateEl = document.getElementById('lastUpdate');
-const distanceEl   = document.getElementById('distance');
-const alertsEl     = document.getElementById('alerts');
-const connectStatusEl = document.getElementById('connectStatus');
+// ============================
+// ⚙️ DOM ELEMENTS
+// ============================
+const latEl = document.getElementById("lat");
+const lngEl = document.getElementById("lng");
+const distEl = document.getElementById("distance");
+const timeEl = document.getElementById("updateTime");
+const alertBox = document.getElementById("alertBox");
+const connectStatus = document.getElementById("connectStatus");
 
-shoeRef.on('value', snap => {
-  const data = snap.val();
-  if(!data) {
-    connectStatusEl.textContent = 'No Data';
-    connectStatusEl.style.background='#555';
+// ============================
+// 🔁 REALTIME UPDATE
+// ============================
+ref.on("value", snap=>{
+  const d = snap.val();
+  if(!d){ 
+    connectStatus.textContent="Disconnected";
+    connectStatus.className="status alert";
     return;
   }
 
-  connectStatusEl.textContent = 'Online';
-  connectStatusEl.style.background = 'var(--success)';
+  connectStatus.textContent="Connected";
+  connectStatus.className="status safe";
 
-  const lat = data.latitude || defaultLat;
-  const lng = data.longitude || defaultLng;
-  const distance = data.distance;
-  const sos = data.sos;
+  const lat = d.latitude || 14.3;
+  const lng = d.longitude || 121.4;
+  const dist = d.distance ?? 0;
+  const sos = d.sos ?? false;
 
-  marker.setLatLng([lat, lng]);
-  map.panTo([lat, lng], { animate:true, duration:1 });
-
+  // Update marker + map
+  marker.setLatLng([lat,lng]);
+  map.panTo([lat,lng]);
   pathCoords.push([lat,lng]);
-  if(pathCoords.length > 200) pathCoords.shift();
+  if(pathCoords.length>300) pathCoords.shift();
   pathLine.setLatLngs(pathCoords);
 
-  latlngEl.textContent = lat.toFixed(6) + ' , ' + lng.toFixed(6);
-  lastUpdateEl.textContent = new Date().toLocaleString('en-PH',{hour12:false});
-  distanceEl.textContent = (typeof distance === 'number'? distance.toFixed(1) : '—') + ' cm';
+  // Update info panel
+  latEl.textContent = lat.toFixed(6);
+  lngEl.textContent = lng.toFixed(6);
+  distEl.textContent = dist.toFixed(1)+" cm";
+  timeEl.textContent = new Date().toLocaleTimeString();
 
-  if(distance >= 150) {
-    alertsEl.textContent = '✅ Safe';
-    alertsEl.className = 'status-pill safe';
-  } else if(distance >= 30 && distance < 150) {
-    alertsEl.textContent = '🟡 Mild Warning';
-    alertsEl.className = 'status-pill warning';
-  } else {
-    alertsEl.textContent = '🔴 SOS — Send Help!';
-    alertsEl.className = 'status-pill alert';
+  // Alert Logic
+  if(sos){
+    alertBox.textContent="🔴 SOS! Obstacle Too Close!";
+    alertBox.className="status alert";
+  }else if(dist < 150 && dist >= 30){
+    alertBox.textContent="⚠️ Warning: Nearby Object";
+    alertBox.className="status warn";
+  }else{
+    alertBox.textContent="✅ Safe";
+    alertBox.className="status safe";
   }
 });
 </script>
+
 </body>
 </html>
