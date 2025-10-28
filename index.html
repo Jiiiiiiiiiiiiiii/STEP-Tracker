@@ -3,82 +3,54 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>S.T.E.P Guardian Monitoring</title>
-
-<!-- Leaflet CSS -->
+<title>S.T.E.P — Guardian Monitoring (Realtime)</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-
-<!-- Google Font -->
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet"/>
-
 <style>
-:root {
-  --bg:#0d0d0d;
-  --card:#141414;
-  --accent:#FFD400;
-  --text:#eaeaea;
-  --muted:#aaa;
-  --danger:#ff4d4d;
-  --warning:#FFD500;
-  --safe:#4CAF50;
-}
-
-* { box-sizing:border-box; margin:0; padding:0; font-family:'Poppins',sans-serif; }
-
-body { background:var(--bg); color:var(--text); display:flex; flex-direction:column; height:100vh; overflow:hidden; }
-header { background:linear-gradient(90deg,#000,#111,#222); padding:18px 30px; border-bottom:2px solid var(--accent);
-  display:flex; justify-content:space-between; align-items:center; color:var(--accent); font-weight:700; box-shadow:0 0 12px rgba(255,212,0,0.3); }
-main { display:grid; grid-template-columns:2fr 1fr; height:100%; overflow:hidden; }
-#map { width:100%; height:100%; z-index:1; }
-.panel { background:var(--card); padding:25px; display:flex; flex-direction:column; gap:18px; border-left:2px solid #222; overflow-y:auto; }
-.title { font-size:22px; color:var(--accent); font-weight:700; text-align:center; }
-.info-box { background:#111; border:1px solid #222; border-radius:10px; padding:12px 15px; display:flex; justify-content:space-between; align-items:center; font-size:16px; }
-.info-box span.value { color:var(--accent); font-weight:600; }
-.status-pill { background:var(--safe); color:#000; font-weight:700; padding:10px 14px; border-radius:8px; text-align:center; font-size:15px; }
-.alert { font-weight:700; padding:10px; border-radius:8px; text-align:center; font-size:15px; animation:blink 1.2s infinite alternate; }
-.alert.safe { background:var(--safe); color:#000; animation:none; }
-.alert.warning { background:var(--warning); color:#000; }
-.alert.danger { background:var(--danger); color:#000; }
-@keyframes blink { 0%{opacity:1;} 100%{opacity:0.6;} }
-
-.btn-row { display:flex; gap:10px; justify-content:space-between; margin-top:auto; }
-button { flex:1; border:none; background:var(--accent); color:#000; font-weight:700; border-radius:10px; padding:12px; cursor:pointer; font-size:16px; transition:all 0.2s ease; }
-button:hover { background:#ffe44d; transform:scale(1.03); }
-footer { text-align:center; padding:8px; font-size:13px; color:var(--muted); border-top:1px solid #222; }
-@media(max-width:900px){ main{grid-template-columns:1fr; grid-template-rows:1fr 0.9fr;} .panel{border-left:none; border-top:2px solid #222;} }
-.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
-.leaflet-marker-icon { transition: transform 0.5s ease; }
+:root{--bg:#0d0d0d;--card:#141414;--accent:#FFD400;--text:#eaeaea;--muted:#aaa;--success:#4CAF50;--warning:#FFC107;--danger:#ff4d4d;}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:Inter,Poppins,sans-serif;}
+header{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:2px solid #111;background:linear-gradient(90deg,#000,#111);color:var(--accent);font-weight:700}
+main{display:grid;grid-template-columns:2fr 1fr;height:calc(100% - 64px);}
+#map{width:100%;height:100%}
+.panel{background:var(--card);padding:18px;display:flex;flex-direction:column;gap:12px;border-left:2px solid #222;box-shadow:inset 0 0 12px rgba(255,212,0,0.03);overflow:auto}
+.title{font-size:18px;color:var(--accent);font-weight:700;text-align:center}
+.row{display:flex;justify-content:space-between;align-items:center;background:#0f0f0f;border-radius:10px;padding:10px;border:1px solid #222}
+.label{color:var(--muted);font-size:13px}
+.value{color:var(--accent);font-weight:700}
+.status{padding:10px;border-radius:8px;text-align:center;font-weight:800}
+.safe{background:var(--success);color:#000}
+.mild{background:var(--warning);color:#000}
+.danger{background:var(--danger);color:#000;animation:blink 1s infinite alternate}
+@keyframes blink{0%{opacity:1}100%{opacity:0.5}}
+footer{padding:10px;text-align:center;color:var(--muted);font-size:12px;border-top:1px solid #111}
+.leaflet-marker-icon{transition: transform 0.6s ease;}
+@media(max-width:900px){main{grid-template-columns:1fr;grid-template-rows:1fr 0.9fr}.panel{border-left:none;border-top:2px solid #222}}
 </style>
 </head>
 <body>
 <header>
-  <div>👟 S.T.E.P Guardian Monitoring</div>
-  <div id="connectStatus" class="status-pill" aria-live="polite">Connecting...</div>
+<div>👟 S.T.E.P — Guardian Monitoring</div>
+<div id="connectStatus" style="background:var(--muted);padding:8px 12px;border-radius:8px;color:#000;font-weight:700">Connecting...</div>
 </header>
-
 <main>
-  <div id="map" role="application" aria-label="Map showing STEP device location"></div>
-
-  <div class="panel">
-    <div class="title">Device Information</div>
-    <div class="info-box"><span>Last Location:</span><span class="value" id="latlng" aria-live="polite">— , —</span></div>
-    <div class="info-box"><span>Distance to Obstacle:</span><span class="value" id="distance" aria-live="polite">— cm</span></div>
-    <div id="alerts" class="status-pill alert safe" aria-live="assertive">No Alerts</div>
-    <div class="btn-row">
-      <button id="centerBtn" aria-label="Center map on device location">📍 Center Map</button>
-    </div>
+<div id="map" aria-label="Map showing device location"></div>
+<div class="panel" role="region" aria-label="Device information">
+  <div class="title">Device Information</div>
+  <div class="row"><div class="label">Last Location</div><div id="latlng" class="value">— , —</div></div>
+  <div class="row"><div class="label">Distance</div><div id="distance" class="value">— cm</div></div>
+  <div class="row"><div class="label">Last Update</div><div id="lastUpdate" class="value">—</div></div>
+  <div id="alerts" class="status safe" role="status" aria-live="polite">✅ Safe</div>
+  <div style="margin-top:auto;display:flex;gap:8px;">
+    <button id="centerBtn" style="flex:1;padding:10px;border-radius:8px;border:none;background:var(--accent);font-weight:800;cursor:pointer">📍 Center Map</button>
+    <button id="fitBtn" style="flex:1;padding:10px;border-radius:8px;border:none;background:#333;color:var(--accent);font-weight:700;cursor:pointer">🔎 Fit Path</button>
   </div>
+</div>
 </main>
+<footer>© 2025 S.T.E.P — Guardian Monitoring</footer>
 
-<footer>© 2025 S.T.E.P | Guardian Monitoring Dashboard</footer>
-
-<!-- Firebase & Leaflet -->
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
 <script>
-// --- Firebase config ---
 const firebaseConfig = {
   apiKey: "AIzaSyCEPsPPxprCkb70JAre73vo0jo3YA6uZQ4",
   authDomain: "step-gps-tracker.firebaseapp.com",
@@ -88,70 +60,69 @@ const firebaseConfig = {
   messagingSenderId: "637274580153",
   appId: "1:637274580153:web:7566f774dbf5ea4380a768"
 };
+
+const MAX_DETECT = 150;
+const SOS_THRESHOLD = 30;
+
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+const shoeRef = db.ref('shoe');
 
-// --- Leaflet Map ---
-const defaultLat=14.3, defaultLng=121.4;
-const map = L.map('map').setView([defaultLat, defaultLng],16);
+const defaultLat = 14.3, defaultLng = 121.4;
+const map = L.map('map', {zoomControl:true}).setView([defaultLat, defaultLng],16);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'© OpenStreetMap contributors'}).addTo(map);
 
-// Marker icon
-const blindIcon = L.divIcon({
-  className:'custom-icon',
-  html:'<div style="width:40px;height:40px;border-radius:50%;background:#FFD400;border:3px solid #000;display:flex;align-items:center;justify-content:center;box-shadow:0 0 15px #FFD400;"><span style="font-size:24px;">🧑‍🦯</span></div>',
-  iconSize:[40,40], iconAnchor:[20,20]
+const stepIcon = L.divIcon({
+  className:'step-icon',
+  html:'<div style="width:44px;height:44px;border-radius:50%;background:#FFD400;border:2px solid #000;display:flex;align-items:center;justify-content:center;font-size:22px;">👟</div>',
+  iconSize:[44,44], iconAnchor:[22,22]
 });
-let marker = L.marker([defaultLat, defaultLng],{icon:blindIcon}).addTo(map).bindPopup('STEP Device Location');
-
-// Path line
+let marker = L.marker([defaultLat,defaultLng],{icon:stepIcon}).addTo(map).bindPopup('STEP device');
 let pathCoords = [];
-let pathLine = L.polyline(pathCoords, {color:'#FFD400', weight:4, opacity:0.8, dashArray:'10,10'}).addTo(map);
+let pathLine = L.polyline(pathCoords,{color:'#FFD400', weight:4, opacity:0.9}).addTo(map);
 
-// Elements
+const connectStatusEl = document.getElementById('connectStatus');
 const latlngEl = document.getElementById('latlng');
 const distanceEl = document.getElementById('distance');
+const lastUpdateEl = document.getElementById('lastUpdate');
 const alertsEl = document.getElementById('alerts');
-const connectStatusEl = document.getElementById('connectStatus');
 const centerBtn = document.getElementById('centerBtn');
+const fitBtn = document.getElementById('fitBtn');
 
-centerBtn.addEventListener('click', ()=>{ map.panTo(marker.getLatLng()); map.setZoom(18); });
+centerBtn.addEventListener('click',()=>{map.panTo(marker.getLatLng()); map.setZoom(18)});
+fitBtn.addEventListener('click',()=>{if(pathCoords.length) map.fitBounds(pathLine.getBounds(),{padding:[30,30]})});
 
-// --- Firebase listener ---
-const shoeRef = db.ref('shoe');
-shoeRef.on('value', snap=>{
-  const data = snap.val();
-  if(!data){
-    connectStatusEl.textContent='No Data'; connectStatusEl.style.background='#555'; return;
+function fmtCoord(x){return (typeof x==='number')?x.toFixed(6):'—';}
+let lastLat=null,lastLng=null;
+
+shoeRef.on('value',snap=>{
+  const data=snap.val();
+  if(!data){connectStatusEl.textContent='No Data';connectStatusEl.style.background='#777';return;}
+
+  connectStatusEl.textContent='Online';connectStatusEl.style.background='#4CAF50';
+
+  const lat=Number(data.latitude)||defaultLat;
+  const lng=Number(data.longitude)||defaultLng;
+  const distance=Number(data.distance)||0;
+  const sos=!!data.sos;
+
+  const moved=(lastLat!==lat||lastLng!==lng);
+  if(moved){
+    marker.setLatLng([lat,lng]);
+    map.panTo([lat,lng],{animate:true,duration:0.8});
+    const delta=(lastLat===null)?9999:Math.hypot(lat-lastLat,lng-lastLng);
+    if(delta>0 && delta<9999){pathCoords.push([lat,lng]);if(pathCoords.length>500) pathCoords.shift(); pathLine.setLatLngs(pathCoords);}
+    else if(lastLat===null){pathCoords.push([lat,lng]);pathLine.setLatLngs(pathCoords);}
+    lastLat=lat;lastLng=lng;
   }
 
-  connectStatusEl.textContent='Online'; connectStatusEl.style.background='var(--safe)';
+  latlngEl.textContent=`${fmtCoord(lat)} , ${fmtCoord(lng)}`;
+  distanceEl.textContent=`${distance.toFixed(1)} cm`;
+  lastUpdateEl.textContent=new Date().toLocaleString('en-PH',{hour12:false});
 
-  const lat = data.latitude||defaultLat;
-  const lng = data.longitude||defaultLng;
-  marker.setLatLng([lat,lng]);
-  map.panTo([lat,lng],{animate:true, duration:1});
-
-  // Path tracking
-  pathCoords.push([lat,lng]);
-  if(pathCoords.length>200) pathCoords.shift();
-  pathLine.setLatLngs(pathCoords);
-
-  // Update info
-  latlngEl.textContent=`${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-  distanceEl.textContent = data.distance ? `${data.distance.toFixed(1)} cm` : '— cm';
-
-  // Alerts based on distance
-  if(data.distance > 150){
-    alertsEl.textContent="✅ Safe";
-    alertsEl.className="status-pill alert safe";
-  } else if(data.distance > 30){
-    alertsEl.textContent="🟡 Mild Warning";
-    alertsEl.className="status-pill alert warning";
-  } else {
-    alertsEl.textContent="🔴 SOS — Send Help!";
-    alertsEl.className="status-pill alert danger";
-  }
+  if(sos || distance<=SOS_THRESHOLD){alertsEl.textContent='🔴 STRONG BEEP — Danger! (SOS)';alertsEl.className='status danger'}
+  else if(distance<=MAX_DETECT){alertsEl.textContent='🟡 MILD BEEP — Warning';alertsEl.className='status mild'}
+  else{alertsEl.textContent='✅ Safe';alertsEl.className='status safe'}
 });
 </script>
 </body>
