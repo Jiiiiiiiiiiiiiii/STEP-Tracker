@@ -3,55 +3,35 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>S.T.E.P Guardian | Real-Time GPS Tracking</title>
+<title>S.T.E.P Guardian Monitoring</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-body{margin:0;font-family:'Poppins',sans-serif;background:#000;color:#fff;}
+body{margin:0;font-family:'Poppins',sans-serif;background:#0d0d0d;color:#eee;}
 #map{height:100vh;width:100%;}
-
-/* Info Panel */
 .info-panel{
-  position:absolute;top:20px;left:20px;width:330px;background:rgba(30,30,30,0.9);
-  padding:22px;border-radius:14px;box-shadow:0 0 25px rgba(255,212,0,0.5);z-index:999;
-  backdrop-filter:blur(10px);border:1px solid rgba(255,212,0,0.3);
+  position:absolute;top:10px;left:10px;width:320px;background:rgba(20,20,20,0.9);
+  padding:20px;border-radius:15px;z-index:1000;box-shadow:0 0 25px #FFD40080;backdrop-filter:blur(6px);
 }
-.info-panel h2{text-align:center;color:#FFD400;margin-bottom:15px;text-shadow:0 0 10px #FFD400;}
-.info-row{display:flex;justify-content:space-between;margin-bottom:8px;font-size:15px;}
-.status-pill{padding:6px 10px;border-radius:8px;font-weight:700;text-align:center;transition:0.3s;}
+.info-panel h2{text-align:center;margin-bottom:10px;color:#FFD400;text-shadow:0 0 5px #FFD400;}
+.info-row{display:flex;justify-content:space-between;margin-bottom:8px;font-size:16px;}
+.status-pill{padding:8px;border-radius:10px;font-weight:700;text-align:center;transition:0.3s;}
 .safe{background:#4CAF50;color:#000;}
 .warning{background:#FFC107;color:#000;}
-.alert{background:#FF3B30;color:#000;}
-#centerBtn{margin-top:10px;width:100%;padding:10px;border:none;background:#FFD400;color:#000;font-weight:700;border-radius:10px;cursor:pointer;}
-#centerBtn:hover{background:#ffe44d;}
-
-/* Shoe Marker */
-.shoe-icon{
-  position:relative;width:45px;height:45px;display:flex;align-items:center;justify-content:center;
-}
-.shoe-icon::before{
-  content:'';position:absolute;width:80px;height:80px;border:3px solid rgba(255,212,0,0.6);
-  border-radius:50%;animation:radar 1.8s infinite ease-out;
-}
-@keyframes radar{
-  0%{transform:scale(0.5);opacity:1;}
-  100%{transform:scale(1.8);opacity:0;}
-}
-.shoe-emoji{
-  font-size:38px;text-shadow:0 0 15px #FFD400;
-}
-
-/* Trail Glow */
-.leaflet-interactive{filter:drop-shadow(0 0 10px #FFD400);}
+.alert{background:#ff4d4d;color:#000;}
+#centerBtn{margin-top:10px;width:100%;padding:10px;border:none;background:#FFD400;color:#000;
+font-weight:700;border-radius:8px;cursor:pointer;transition:0.3s;}
+#centerBtn:hover{background:#ffe44d;box-shadow:0 0 10px #FFD400;}
 </style>
 </head>
 <body>
 <div id="map"></div>
 <div class="info-panel">
-  <h2>S.T.E.P Guardian</h2>
+  <h2>STEP Guardian</h2>
   <div class="info-row">Latitude: <span id="lat">—</span></div>
   <div class="info-row">Longitude: <span id="lng">—</span></div>
   <div class="info-row">Distance: <span id="distance">—</span> cm</div>
+  <div class="info-row">Battery: <span id="battery">—</span>%</div>
   <div class="info-row">Status: <span id="status" class="status-pill safe">Safe</span></div>
   <button id="centerBtn">📍 Center Map</button>
 </div>
@@ -60,68 +40,84 @@ body{margin:0;font-family:'Poppins',sans-serif;background:#000;color:#fff;}
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-// Firebase setup
-const firebaseConfig={
-  apiKey:"AIzaSyCEPsPPxprCkb70JAre73vo0jo3YA6uZQ4",
-  authDomain:"step-gps-tracker.firebaseapp.com",
-  databaseURL:"https://step-gps-tracker-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId:"step-gps-tracker",
-  storageBucket:"step-gps-tracker.firebasestorage.app",
-  messagingSenderId:"637274580153",
-  appId:"1:637274580153:web:7566f774dbf5ea4380a768"
+// Firebase config
+const firebaseConfig = {
+  apiKey: "AIzaSyCEPsPPxprCkb70JAre73vo0jo3YA6uZQ4",
+  authDomain: "step-gps-tracker.firebaseapp.com",
+  databaseURL: "https://step-gps-tracker-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "step-gps-tracker",
+  storageBucket: "step-gps-tracker.firebasestorage.app",
+  messagingSenderId: "637274580153",
+  appId: "1:637274580153:web:7566f774dbf5ea4380a768"
 };
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 
 // Map setup
-const map=L.map('map').setView([14.0802,121.1655],18);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+const defaultLat=14.311, defaultLng=121.164;
+const map=L.map('map').setView([defaultLat,defaultLng],17);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
 
-// Custom shoe icon
-const shoeIcon=L.divIcon({
-  html:'<div class="shoe-icon"><span class="shoe-emoji">👟</span></div>',
-  className:'',
-  iconSize:[45,45],
-  iconAnchor:[22,22]
+// Shoe icon (no box)
+const shoeIcon=L.icon({
+  iconUrl:'https://cdn-icons-png.flaticon.com/512/3163/3163478.png',
+  iconSize:[40,40],
+  iconAnchor:[20,20]
 });
-let marker=L.marker([14.0802,121.1655],{icon:shoeIcon}).addTo(map);
-let pathCoords=[],pathLine=L.polyline(pathCoords,{color:'#FFD400',weight:4,opacity:0.9}).addTo(map);
 
-// Elements
+let marker=L.marker([defaultLat,defaultLng],{icon:shoeIcon}).addTo(map);
+let pathCoords=[], pathLine=L.polyline(pathCoords,{color:'#FFD400',weight:4,opacity:0.8}).addTo(map);
+
+// HTML elements
 const latEl=document.getElementById('lat');
 const lngEl=document.getElementById('lng');
 const distanceEl=document.getElementById('distance');
+const batteryEl=document.getElementById('battery');
 const statusEl=document.getElementById('status');
-const centerBtn=document.getElementById('centerBtn');
-centerBtn.onclick=()=>map.panTo(marker.getLatLng());
+document.getElementById('centerBtn').addEventListener('click',()=>map.panTo(marker.getLatLng()));
 
-// Realtime listener
+// Realtime Firebase listener
 db.ref('shoe').on('value',snap=>{
   const d=snap.val(); if(!d) return;
-  const lat=d.latitude||14.0802,lng=d.longitude||121.1655;
-  let distance=d.distance<0?200:d.distance;
+  const lat=d.latitude||defaultLat;
+  const lng=d.longitude||defaultLng;
+  let dist=d.distance;
+  let batt=d.battery||0;
 
+  // Default safe distance if invalid
+  if(dist<0 || dist>500) dist=200;
+
+  // Update info
+  latEl.textContent=lat.toFixed(6);
+  lngEl.textContent=lng.toFixed(6);
+  distanceEl.textContent=dist.toFixed(1);
+  batteryEl.textContent=batt.toFixed(0);
+
+  // Battery color
+  if(batt<=20) batteryEl.style.color="#ff4d4d";
+  else if(batt<=50) batteryEl.style.color="#FFD400";
+  else batteryEl.style.color="#4CAF50";
+
+  // Marker + Path
   marker.setLatLng([lat,lng]);
   map.panTo([lat,lng]);
   pathCoords.push([lat,lng]);
-  if(pathCoords.length>200) pathCoords.shift();
+  if(pathCoords.length>150) pathCoords.shift();
   pathLine.setLatLngs(pathCoords);
 
-  latEl.textContent=lat.toFixed(6);
-  lngEl.textContent=lng.toFixed(6);
-  distanceEl.textContent=distance.toFixed(1);
-
-  if(distance>=150){
+  // Status logic
+  if(dist>=150){
     statusEl.textContent="✅ Safe";
-    statusEl.className="status-pill safe";
-  }else if(distance>=30){
-    statusEl.textContent="🟡 Mild Warning";
-    statusEl.className="status-pill warning";
+    statusEl.className='status-pill safe';
+  }else if(dist>=30 && dist<150){
+    statusEl.textContent="🟡 Warning";
+    statusEl.className='status-pill warning';
   }else{
-    statusEl.textContent="🔴 SOS — Send Help!";
-    statusEl.className="status-pill alert";
+    statusEl.textContent="🔴 Danger!";
+    statusEl.className='status-pill alert';
   }
 });
+setTimeout(()=>map.invalidateSize(),100);
 </script>
 </body>
 </html>
