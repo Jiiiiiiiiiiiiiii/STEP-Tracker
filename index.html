@@ -1,107 +1,143 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>S.T.E.P Guardian Tracker</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
-<style>
-body{margin:0;font-family:'Poppins',sans-serif;background:#0b0b0b;color:#eee;}
-#map{height:100vh;width:100vw;}
-.info-panel{
-  position:absolute;top:10px;left:10px;width:300px;background:#1a1a1a;padding:20px;border-radius:12px;z-index:1000;
-  box-shadow:0 0 25px #FFD40080;border:2px solid #FFD400;
-}
-.info-panel h2{color:#FFD400;text-align:center;margin-bottom:10px;}
-.info-row{display:flex;justify-content:space-between;margin-bottom:8px;font-size:16px;}
-.status-pill{padding:8px;border-radius:8px;font-weight:700;text-align:center;}
-.safe{background:#4CAF50;color:#000;}
-.warning{background:#FFC107;color:#000;}
-.alert{background:#ff4d4d;color:#000;}
-#centerBtn{margin-top:10px;width:100%;padding:10px;border:none;background:#FFD400;color:#000;font-weight:700;border-radius:8px;cursor:pointer;}
-#centerBtn:hover{background:#ffe44d;}
-</style>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>S.T.E.P Guardian Tracker</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#071019;
+      --card: rgba(255,255,255,0.03);
+      --accent:#FFD400;
+      --muted:#9aa4b2;
+      --success:#35d07f;
+      --warning:#ffb020;
+      --danger:#ff5b5b;
+    }
+    *{box-sizing:border-box;font-family:'Poppins',sans-serif;}
+    html,body,#map{height:100%;margin:0;padding:0;}
+    body{background:var(--bg);color:#e9eef6;display:flex;flex-direction:column;}
+    header{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:16px 24px;background:#0d1a2a;color:var(--accent);
+    }
+    header h1{margin:0;font-size:20px;}
+    main{flex:1;display:grid;grid-template-columns:2fr 1fr;}
+    #map{width:100%;height:100%;}
+    .panel{
+      background: #0f1b2c; padding:20px; border-left:1px solid #122433;
+      display:flex;flex-direction:column;gap:14px;min-height:0;
+    }
+    .panel h2{margin:0;font-size:18px;color:var(--accent);}
+    .info{background:rgba(255,255,255,0.02);padding:12px;border-radius:8px;display:flex;justify-content:space-between;}
+    .info .label{color:var(--muted);font-size:14px;}
+    .info .val{color:#fff;font-weight:600;}
+    .status{padding:10px;border-radius:10px;text-align:center;font-weight:700;}
+    .safe{background:var(--success);color:#000;}
+    .warning{background:var(--warning);color:#000;}
+    .alert{background:var(--danger);color:#000;}
+    .btns{margin-top:auto;display:flex;gap:10px;}
+    .btn{flex:1;padding:12px;border:none;border-radius:10px;background:var(--accent);color:#071019;font-weight:700;cursor:pointer;}
+    .btn:hover{background:#ffe44d;}
+  </style>
 </head>
 <body>
-<div id="map"></div>
-<div class="info-panel">
-  <h2>STEP Guardian</h2>
-  <div class="info-row">Latitude: <span id="lat">—</span></div>
-  <div class="info-row">Longitude: <span id="lng">—</span></div>
-  <div class="info-row">Distance: <span id="distance">—</span> cm</div>
-  <div class="info-row">Status: <span id="status" class="status-pill safe">Waiting for GPS...</span></div>
-  <button id="centerBtn">📍 Center Map</button>
-</div>
+  <header>
+    <h1>👟 S.T.E.P Guardian Monitoring</h1>
+    <div id="connectStatus" class="status safe">Connecting...</div>
+  </header>
+  <main>
+    <div id="map"></div>
+    <div class="panel">
+      <h2>Device Information</h2>
+      <div class="info"><div class="label">Latitude:</div><div class="val" id="lat">—</div></div>
+      <div class="info"><div class="label">Longitude:</div><div class="val" id="lng">—</div></div>
+      <div class="info"><div class="label">Distance:</div><div class="val" id="distance">— cm</div></div>
+      <div id="statusBox" class="status safe">—</div>
+      <div class="btns">
+        <button id="centerBtn">📍 Center Map</button>
+        <button id="resetBtn">🔄 Reset Path</button>
+      </div>
+    </div>
+  </main>
 
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script>
-// Firebase config
-const firebaseConfig = {
-  apiKey: "AIzaSyCEPsPPxprCkb70JAre73vo0jo3YA6uZQ4",
-  authDomain: "step-gps-tracker.firebaseapp.com",
-  databaseURL: "https://step-gps-tracker-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "step-gps-tracker",
-  storageBucket: "step-gps-tracker.firebasestorage.app",
-  messagingSenderId: "637274580153",
-  appId: "1:637274580153:web:7566f774dbf5ea4380a768"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-// Map setup
-const map = L.map('map').setView([13.9407,121.1641], 17);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom:19, attribution:'© OpenStreetMap'
-}).addTo(map);
+  <script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyCEPsPPxprCkb70JAre73vo0jo3YA6uZQ4",
+    authDomain: "step-gps-tracker.firebaseapp.com",
+    databaseURL: "https://step-gps-tracker-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "step-gps-tracker",
+    storageBucket: "step-gps-tracker.firebasestorage.app",
+    messagingSenderId: "637274580153",
+    appId: "1:637274580153:web:7566f774dbf5ea4380a768"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
 
-// Marker & path
-const shoeIcon = L.divIcon({
-  html:'<div style="width:45px;height:45px;border-radius:50%;background:#FFD400;border:3px solid #000;display:flex;align-items:center;justify-content:center;box-shadow:0 0 15px #FFD400;"><span style="font-size:24px;">👟</span></div>',
-  iconSize:[45,45],iconAnchor:[22,22]
-});
-let marker = L.marker([13.9407,121.1641],{icon:shoeIcon}).addTo(map);
-let trail = L.polyline([], {color:'#FFD400',weight:4,opacity:0.8}).addTo(map);
+  const defaultLat = 14.3, defaultLng = 121.4;
+  const map = L.map('map').setView([defaultLat, defaultLng], 16);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
 
-// Elements
-const latEl=document.getElementById('lat');
-const lngEl=document.getElementById('lng');
-const distEl=document.getElementById('distance');
-const statusEl=document.getElementById('status');
-document.getElementById('centerBtn').onclick=()=>map.panTo(marker.getLatLng());
+  const iconHtml = `<div style="width:40px;height:40px;border-radius:50%;background:#FFD400;border:3px solid #000;display:flex;align-items:center;justify-content:center;font-size:24px;">👟</div>`;
+  const shoeIcon = L.divIcon({ html: iconHtml, iconSize:[40,40], iconAnchor:[20,20] });
+  let marker = L.marker([defaultLat, defaultLng], {icon: shoeIcon}).addTo(map);
+  let pathCoords = [];
+  let pathLine = L.polyline(pathCoords, {color:'#FFD400', weight:4, opacity:0.75}).addTo(map);
 
-// Firebase realtime listener
-db.ref('shoe').on('value', snap=>{
-  const d = snap.val();
-  if(!d) return;
-
-  const lat = d.latitude || 13.9407;
-  const lng = d.longitude || 121.1641;
-  const dist = d.distance;
-  const sos = d.sos;
-
-  // Update marker position
-  marker.setLatLng([lat,lng]);
-  map.panTo([lat,lng]);
-  trail.addLatLng([lat,lng]);
-
-  latEl.textContent = lat.toFixed(6);
-  lngEl.textContent = lng.toFixed(6);
-  distEl.textContent = dist > 0 ? dist.toFixed(1) : '—';
-
-  if(dist >= 150){
-    statusEl.textContent = "✅ Safe";
-    statusEl.className = "status-pill safe";
-  }else if(dist >= 30){
-    statusEl.textContent = "🟡 Mild Warning";
-    statusEl.className = "status-pill warning";
-  }else{
-    statusEl.textContent = "🔴 Danger Zone";
-    statusEl.className = "status-pill alert";
+  const connectStatus = document.getElementById('connectStatus');
+  const latEl = document.getElementById('lat');
+  const lngEl = document.getElementById('lng');
+  const distanceEl = document.getElementById('distance');
+  const statusBox = document.getElementById('statusBox');
+  document.getElementById('centerBtn').onclick = ()=>map.panTo(marker.getLatLng());
+  document.getElementById('resetBtn').onclick = ()=>{
+    pathCoords = [];
+    pathLine.setLatLngs(pathCoords);
   }
-});
-</script>
+
+  db.ref('shoe').on('value', snap=>{
+    const d = snap.val();
+    if(!d){ connectStatus.textContent = 'No Data'; return; }
+
+    connectStatus.textContent = 'Online';
+
+    const lat = (typeof d.latitude === 'number') ? d.latitude : defaultLat;
+    const lng = (typeof d.longitude === 'number') ? d.longitude : defaultLng;
+    const rawDist = (typeof d.distance === 'number') ? d.distance : -1;
+
+    let distance = rawDist;
+    if(distance < 0) distance = -1;
+
+    marker.setLatLng([lat, lng]);
+    map.panTo([lat, lng]);
+
+    pathCoords.push([lat,lng]);
+    if(pathCoords.length > 300) pathCoords.shift();
+    pathLine.setLatLngs(pathCoords);
+
+    latEl.textContent = lat.toFixed(6);
+    lngEl.textContent = lng.toFixed(6);
+    distanceEl.textContent = (distance < 0) ? '—' : distance.toFixed(1)+' cm';
+
+    if(distance >= 150 || distance < 0){
+      statusBox.textContent = '✅ Safe';
+      statusBox.className = 'status safe';
+    } else if(distance >= 30){
+      statusBox.textContent = '🟡 Mild Warning';
+      statusBox.className = 'status warning';
+    } else {
+      statusBox.textContent = '🔴 SOS — Send Help!';
+      statusBox.className = 'status alert';
+    }
+  });
+
+  setTimeout(()=>map.invalidateSize(), 200);
+  </script>
 </body>
 </html>
