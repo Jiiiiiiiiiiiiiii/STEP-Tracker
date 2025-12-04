@@ -166,9 +166,7 @@ loginBtn.addEventListener('click', () => {
       document.querySelector('.info-panel').style.display = 'block';
       initMap();
     })
-    .catch((error) => {
-      errorMsg.textContent = error.message;
-    });
+    .catch((error) => { errorMsg.textContent = error.message; });
 });
 
 /* ---------- LOGOUT ---------- */
@@ -210,15 +208,15 @@ function initMap() {
   const statusEl=document.getElementById('status');
   document.getElementById('centerBtn').onclick = () => map.panTo(marker.getLatLng());
 
-  // Firebase realtime update
+  // 🔹 Firebase realtime update
   db.ref('shoe').on('value', snap => {
     const data = snap.val(); if(!data) return;
-    const lat = data.latitude||14.0, lng = data.longitude||121.0;
-    const dist = data.distance??-1;
+    const lat = data.latitude || 14.0;
+    const lng = data.longitude || 121.0;
+    const dist = data.distance ?? -1;
 
     marker.setLatLng([lat,lng]);
     path.addLatLng([lat,lng]);
-    map.panTo([lat,lng],{animate:true,duration:1});
 
     latEl.textContent = lat.toFixed(6);
     lngEl.textContent = lng.toFixed(6);
@@ -231,6 +229,8 @@ function initMap() {
     } else if(dist<30){
       statusEl.textContent="🔴 Danger Zone"; statusEl.className='status-pill alert';
     }
+
+    map.panTo([lat,lng],{animate:true,duration:1});
   });
 }
 </script>
