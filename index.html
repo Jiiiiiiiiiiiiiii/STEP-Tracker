@@ -14,57 +14,15 @@ body{
   color:#fff;
   overflow:hidden;
 }
+#map{height:100vh;width:100%;}
 
-/* ---------- LOGIN SCREEN ---------- */
-#loginScreen{
-  position:fixed;top:0;left:0;width:100%;height:100%;
-  display:flex;justify-content:center;align-items:center;
-  background:rgba(0,0,0,0.95);z-index:2000;
-}
-.login-container{
-  background: rgba(25,25,25,0.95);
-  padding: 30px;
-  border-radius: 15px;
-  box-shadow: 0 0 25px #FFD400;
-  width: 320px;
-  text-align:center;
-  backdrop-filter: blur(10px);
-}
-.login-container h2{
-  color:#FFD400;
-  margin-bottom:20px;
-}
-.login-container input{
-  width:100%;
-  padding:10px;
-  margin:8px 0;
-  border-radius:10px;
-  border:none;
-  outline:none;
-}
-.login-container button{
-  width:100%;
-  padding:10px;
-  border:none;
-  background:#FFD400;
-  color:#000;
-  font-weight:700;
-  border-radius:10px;
-  cursor:pointer;
-  transition:0.3s;
-}
-.login-container button:hover{ background:#fff34d; transform:scale(1.05); }
-.error-msg{ color:#ff4d4d; margin-top:10px; font-size:14px; }
-
-/* ---------- MAP & INFO ---------- */
-#map{height:100vh;width:100%;display:none;}
+/* Info panel */
 .info-panel{
   position:absolute;top:10px;left:10px;width:320px;
   background:rgba(25,25,25,0.9);
   padding:20px;border-radius:15px;
   z-index:1000;backdrop-filter:blur(10px);
   box-shadow:0 0 25px #FFD400;
-  display:none;
 }
 .info-panel h2{
   text-align:center;color:#FFD400;margin-bottom:12px;font-size:22px;
@@ -87,35 +45,35 @@ body{
   cursor:pointer;transition:0.3s;
 }
 #centerBtn:hover{background:#fff34d;transform:scale(1.05);}
-#logoutBtn{
-  margin-top:10px;width:100%;padding:10px;
-  border:none;background:#ff4d4d;color:#000;
-  font-weight:700;border-radius:10px;
-  cursor:pointer;transition:0.3s;
-}
-#logoutBtn:hover{background:#ff7373;transform:scale(1.05);}
 
-/* ---------- Radar Animation ---------- */
-@keyframes radarPulse {0%{transform:scale(0.2);opacity:0.7;}70%{transform:scale(2.8);opacity:0;}100%{opacity:0;}}
-@keyframes radarSweep {0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}
-.pulse{position:absolute;width:30px;height:30px;border-radius:50%;background:rgba(255,212,0,0.3);animation:radarPulse 2.2s infinite;}
-.sweep{position:absolute;width:100px;height:100px;border-top:2px solid rgba(255,212,0,0.5);border-right:2px solid transparent;border-radius:50%;animation:radarSweep 3s linear infinite;transform-origin:center;}
+/* Radar Animation */
+@keyframes radarPulse {
+  0% {transform:scale(0.2);opacity:0.7;}
+  70% {transform:scale(2.8);opacity:0;}
+  100% {opacity:0;}
+}
+@keyframes radarSweep {
+  0% {transform:rotate(0deg);}
+  100% {transform:rotate(360deg);}
+}
+.pulse {
+  position:absolute;
+  width:30px;height:30px;border-radius:50%;
+  background:rgba(255,212,0,0.3);
+  animation:radarPulse 2.2s infinite;
+}
+.sweep {
+  position:absolute;
+  width:100px;height:100px;
+  border-top:2px solid rgba(255,212,0,0.5);
+  border-right:2px solid transparent;
+  border-radius:50%;
+  animation:radarSweep 3s linear infinite;
+  transform-origin:center;
+}
 </style>
 </head>
 <body>
-
-<!-- ---------- LOGIN SCREEN ---------- -->
-<div id="loginScreen">
-  <div class="login-container">
-    <h2>🦯 STEP Guardian</h2>
-    <input type="email" id="email" placeholder="Email" required>
-    <input type="password" id="password" placeholder="Password" required>
-    <button id="loginBtn">Login</button>
-    <div class="error-msg" id="errorMsg"></div>
-  </div>
-</div>
-
-<!-- ---------- MAP & INFO ---------- -->
 <div id="map"></div>
 
 <div class="info-panel">
@@ -125,17 +83,13 @@ body{
   <div class="info-row">Distance: <span id="distance">—</span> cm</div>
   <div class="info-row">Status: <span id="status" class="status-pill safe">Safe</span></div>
   <button id="centerBtn">📍 Center Map</button>
-  <button id="logoutBtn">🚪 Logout</button>
 </div>
 
-<!-- Firebase & Leaflet -->
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
 <script>
-/* ---------- FIREBASE CONFIG ---------- */
+// Firebase config
 const firebaseConfig={
   apiKey:"AIzaSyCEPsPPxprCkb70JAre73vo0jo3YA6uZQ4",
   authDomain:"step-gps-tracker.firebaseapp.com",
@@ -146,93 +100,68 @@ const firebaseConfig={
   appId:"1:637274580153:web:7566f774dbf5ea4380a768"
 };
 firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.database();
+const db=firebase.database();
 
-/* ---------- LOGIN ---------- */
-const loginScreen = document.getElementById('loginScreen');
-const loginBtn = document.getElementById('loginBtn');
-const errorMsg = document.getElementById('errorMsg');
-const logoutBtn = document.getElementById('logoutBtn');
+// MAP setup
+const map=L.map('map').setView([14.0,121.0],16);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+ {maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
 
-loginBtn.addEventListener('click', () => {
-  const email = document.getElementById('email').value;
-  const password = document.getElementById('password').value;
+// Blind person icon + radar
+const markerHTML = `
+<div style="position:relative;width:80px;height:80px;display:flex;align-items:center;justify-content:center;">
+  <div class="pulse"></div>
+  <div class="sweep"></div>
+  <img src="https://cdn-icons-png.flaticon.com/512/4140/4140048.png" 
+       style="width:45px;height:45px;z-index:2;filter:drop-shadow(0 0 10px #FFD400);">
+</div>`;
 
-  auth.signInWithEmailAndPassword(email, password)
-    .then(() => {
-      loginScreen.style.display = 'none';
-      document.getElementById('map').style.display = 'block';
-      document.querySelector('.info-panel').style.display = 'block';
-      initMap();
-    })
-    .catch((error) => { errorMsg.textContent = error.message; });
+
+const blindIcon=L.divIcon({
+  html: markerHTML,
+  className:'',
+  iconSize:[80,80],
+  iconAnchor:[40,40]
 });
 
-/* ---------- LOGOUT ---------- */
-logoutBtn.addEventListener('click', () => {
-  auth.signOut().then(() => {
-    loginScreen.style.display = 'flex';
-    document.getElementById('map').style.display = 'none';
-    document.querySelector('.info-panel').style.display = 'none';
-  });
+let marker=L.marker([14.0,121.0],{icon:blindIcon}).addTo(map);
+let path=L.polyline([], {color:'#FFD400',weight:4,opacity:0.8}).addTo(map);
+
+// Elements
+const latEl=document.getElementById('lat');
+const lngEl=document.getElementById('lng');
+const distanceEl=document.getElementById('distance');
+const statusEl=document.getElementById('status');
+document.getElementById('centerBtn').onclick=()=>map.panTo(marker.getLatLng());
+
+// Realtime update
+db.ref('shoe').on('value',snap=>{
+  const data=snap.val(); if(!data) return;
+  const lat=data.latitude||14.0,lng=data.longitude||121.0;
+  const dist=data.distance??-1;
+
+  // Update map
+  marker.setLatLng([lat,lng]);
+  path.addLatLng([lat,lng]);
+  map.panTo([lat,lng],{animate:true,duration:1});
+
+  // Update info panel
+  latEl.textContent=lat.toFixed(6);
+  lngEl.textContent=lng.toFixed(6);
+  distanceEl.textContent=dist>0?dist.toFixed(1):'—';
+
+  // Fuzzy logic: 150cm ↑ / no signal → Safe, 30–150 cm → Mild, <30 cm → Danger
+  if(dist<0 || dist>=150){
+    statusEl.textContent="✅ Safe";
+    statusEl.className='status-pill safe';
+  } else if(dist>=30 && dist<150){
+    statusEl.textContent="🟡 Mild Warning";
+    statusEl.className='status-pill warning';
+  } else if(dist<30){
+    statusEl.textContent="🔴 Danger Zone";
+    statusEl.className='status-pill alert';
+  }
 });
-
-/* ---------- MAP & RADAR ---------- */
-function initMap() {
-  const map = L.map('map').setView([14.0,121.0],16);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-   {maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
-
-  const markerHTML = `
-  <div style="position:relative;width:80px;height:80px;display:flex;align-items:center;justify-content:center;">
-    <div class="pulse"></div>
-    <div class="sweep"></div>
-    <img src="https://cdn-icons-png.flaticon.com/512/4140/4140048.png" 
-         style="width:45px;height:45px;z-index:2;filter:drop-shadow(0 0 10px #FFD400);">
-  </div>`;
-
-  const blindIcon = L.divIcon({
-    html: markerHTML,
-    className:'',
-    iconSize:[80,80],
-    iconAnchor:[40,40]
-  });
-
-  let marker = L.marker([14.0,121.0],{icon:blindIcon}).addTo(map);
-  let path = L.polyline([], {color:'#FFD400',weight:4,opacity:0.8}).addTo(map);
-
-  const latEl=document.getElementById('lat');
-  const lngEl=document.getElementById('lng');
-  const distanceEl=document.getElementById('distance');
-  const statusEl=document.getElementById('status');
-  document.getElementById('centerBtn').onclick = () => map.panTo(marker.getLatLng());
-
-  // 🔹 Firebase realtime update
-  db.ref('shoe').on('value', snap => {
-    const data = snap.val(); if(!data) return;
-    const lat = data.latitude || 14.0;
-    const lng = data.longitude || 121.0;
-    const dist = data.distance ?? -1;
-
-    marker.setLatLng([lat,lng]);
-    path.addLatLng([lat,lng]);
-
-    latEl.textContent = lat.toFixed(6);
-    lngEl.textContent = lng.toFixed(6);
-    distanceEl.textContent = dist>0 ? dist.toFixed(1) : '—';
-
-    if(dist<0 || dist>=150){
-      statusEl.textContent="✅ Safe"; statusEl.className='status-pill safe';
-    } else if(dist>=30 && dist<150){
-      statusEl.textContent="🟡 Mild Warning"; statusEl.className='status-pill warning';
-    } else if(dist<30){
-      statusEl.textContent="🔴 Danger Zone"; statusEl.className='status-pill alert';
-    }
-
-    map.panTo([lat,lng],{animate:true,duration:1});
-  });
-}
 </script>
 </body>
 </html>
